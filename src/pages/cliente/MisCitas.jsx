@@ -92,15 +92,18 @@ function ModalResena({ cita, onClose, onGuardada }) {
   )
 }
 
-function TarjetaCita({ cita, onCancelar, onResenar }) {
+function TarjetaCita({ cita, onCancelar, onResenar, onEditar, onEliminar }) {
   const cfg = ESTADO_CONFIG[cita.estado] ?? ESTADO_CONFIG.pendiente
+  const [confirmando, setConfirmando] = useState(false)
 
   return (
     <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-bold text-white text-base">{cita.establecimiento_nombre}</h3>
-          <p className="text-xs text-slate-400 mt-0.5">{cita.servicio_nombre ?? cita.servicio_texto ?? 'Sin servicio especificado'}</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {cita.servicio_nombre ?? cita.servicio_texto ?? 'Sin servicio especificado'}
+          </p>
         </div>
         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border shrink-0 ${cfg.color}`}>
           {cfg.label}
@@ -108,48 +111,55 @@ function TarjetaCita({ cita, onCancelar, onResenar }) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
-            <svg className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs text-slate-500">Fecha</p>
-            <p className="text-xs text-white font-medium">{cita.fecha}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
-            <svg className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs text-slate-500">Hora</p>
-            <p className="text-xs text-white font-medium">{cita.hora?.slice(0,5)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
-            <svg className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs text-slate-500">Vehiculo</p>
-            <p className="text-xs text-white font-medium tracking-widest">{cita.vehiculo_placa}</p>
-          </div>
-        </div>
+        <InfoItem label="Fecha"    value={cita.fecha} />
+        <InfoItem label="Hora"     value={cita.hora?.slice(0,5)} />
+        <InfoItem label="Vehiculo" value={cita.vehiculo_placa} mono />
       </div>
 
-      <div className="flex gap-2 pt-1 border-t border-slate-700 dark:border-gray-800">
-        {cita.estado === 'pendiente' && (
-          <button onClick={() => onCancelar(cita.id)}
-            className="flex-1 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-medium transition-colors">
-            Cancelar cita
-          </button>
+      {cita.notas && (
+        <p className="text-xs text-slate-400 bg-slate-700/50 rounded-lg px-3 py-2 italic">
+          "{cita.notas}"
+        </p>
+      )}
+
+      <div className="flex gap-2 pt-1 border-t border-slate-700 dark:border-gray-800 flex-wrap">
+
+        {/* Pendiente: editar + cancelar */}
+        {cita.estado === 'pendiente' && !confirmando && (
+          <>
+            <button onClick={() => onEditar(cita)}
+              className="flex-1 py-2 rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 text-xs font-medium transition-colors">
+              Editar
+            </button>
+            <button onClick={() => setConfirmando(true)}
+              className="flex-1 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-medium transition-colors">
+              Cancelar cita
+            </button>
+          </>
         )}
+
+        {/* Confirmacion de cancelacion */}
+        {cita.estado === 'pendiente' && confirmando && (
+          <>
+            <button onClick={() => setConfirmando(false)}
+              className="flex-1 py-2 rounded-xl border border-slate-600 text-slate-400 hover:bg-slate-700 text-xs transition-colors">
+              No
+            </button>
+            <button onClick={() => { setConfirmando(false); onCancelar(cita.id) }}
+              className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors">
+              Confirmar cancelacion
+            </button>
+          </>
+        )}
+
+        {/* Confirmada: solo info */}
+        {cita.estado === 'confirmada' && (
+          <p className="flex-1 py-2 text-center text-xs text-slate-500">
+            Cita confirmada por el taller
+          </p>
+        )}
+
+        {/* Finalizada: dejar reseña */}
         {cita.estado === 'finalizada' && !cita.tiene_resena && (
           <button onClick={() => onResenar(cita)}
             className="flex-1 py-2 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30 text-xs font-medium transition-colors flex items-center justify-center gap-1.5">
@@ -162,6 +172,29 @@ function TarjetaCita({ cita, onCancelar, onResenar }) {
         {cita.estado === 'finalizada' && cita.tiene_resena && (
           <p className="flex-1 py-2 text-center text-xs text-slate-500">Reseña publicada ✓</p>
         )}
+
+        {/* Cancelada: eliminar */}
+        {cita.estado === 'cancelada' && (
+          <button onClick={() => onEliminar(cita.id)}
+            className="flex-1 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-medium transition-colors">
+            Eliminar registro
+          </button>
+        )}
+
+      </div>
+    </div>
+  )
+}
+
+function InfoItem({ label, value, mono = false }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-7 h-7 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+        <div className="w-2 h-2 rounded-full bg-blue-400" />
+      </div>
+      <div>
+        <p className="text-xs text-slate-500">{label}</p>
+        <p className={`text-xs text-white font-medium ${mono ? 'tracking-widest' : ''}`}>{value}</p>
       </div>
     </div>
   )
@@ -172,6 +205,12 @@ export default function MisCitas() {
   const [loading, setLoading]     = useState(true)
   const [filtro, setFiltro]       = useState('todas')
   const [citaResena, setCitaResena] = useState(null)
+  const [citaEditando, setCitaEditando] = useState(null)
+  const [editForm, setEditForm]         = useState({ fecha: '', hora: '' })
+  const [editando, setEditando]         = useState(false)
+  const [editError, setEditError]       = useState('')
+
+  const HORAS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00']
 
   useEffect(() => { fetchCitas() }, [])
 
@@ -189,6 +228,35 @@ export default function MisCitas() {
       fetchCitas()
     } catch {}
   }
+
+  function abrirEdicion(cita) {
+  setCitaEditando(cita)
+  setEditForm({ fecha: cita.fecha, hora: cita.hora?.slice(0,5) })
+  setEditError('')
+}
+
+async function handleEditar() {
+  if (!editForm.fecha || !editForm.hora) return
+  setEditando(true); setEditError('')
+  try {
+    await api.patch(`/citas/${citaEditando.id}/editar/`, {
+      fecha: editForm.fecha,
+      hora:  editForm.hora,
+    })
+    setCitaEditando(null)
+    fetchCitas()
+  } catch (err) {
+    setEditError(err.response?.data?.error ?? 'Error al editar')
+  }
+  setEditando(false)
+}
+
+async function handleEliminar(id) {
+  try {
+    await api.delete(`/citas/${id}/`)
+    fetchCitas()
+  } catch {}
+}
 
   const filtradas = filtro === 'todas'
     ? citas
@@ -247,11 +315,56 @@ export default function MisCitas() {
             {filtradas.map(c => (
               <TarjetaCita key={c.id} cita={c}
                 onCancelar={handleCancelar}
-                onResenar={cita => setCitaResena(cita)} />
+                onResenar={cita => setCitaResena(cita)}
+                onEditar={abrirEdicion}
+                onEliminar={handleEliminar} />
             ))}
           </div>
         )}
       </div>
+
+      {citaEditando && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setCitaEditando(null)} />
+        <div className="relative z-10 w-full max-w-sm bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 p-6 shadow-2xl">
+          <h3 className="text-base font-bold text-white mb-1">Editar cita</h3>
+          <p className="text-xs text-slate-400 mb-5">{citaEditando.establecimiento_nombre}</p>
+
+          <div className="flex flex-col gap-4 mb-5">
+            <div>
+              <label className="text-xs text-slate-400 mb-1.5 block">Nueva fecha</label>
+              <input type="date" value={editForm.fecha}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={e => setEditForm(f => ({ ...f, fecha: e.target.value }))}
+                className="w-full px-3 py-2 text-sm rounded-lg bg-slate-700 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1.5 block">Nueva hora</label>
+              <select value={editForm.hora}
+                onChange={e => setEditForm(f => ({ ...f, hora: e.target.value }))}
+                className="w-full px-3 py-2 text-sm rounded-lg bg-slate-700 border border-slate-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                {HORAS.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {editError && <p className="text-xs text-red-400 mb-3">{editError}</p>}
+
+          <div className="flex gap-3">
+            <button onClick={() => setCitaEditando(null)}
+              className="flex-1 py-2.5 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm transition-colors">
+              Cancelar
+            </button>
+            <button onClick={handleEditar} disabled={editando}
+              className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2">
+              {editando && <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />}
+              {editando ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
       {citaResena && (
         <ModalResena
