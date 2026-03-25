@@ -10,6 +10,7 @@ const EMPTY_FORM = {
   hora_apertura: '08:00', hora_cierre: '18:00',
   descripcion: '', latitud: '', longitud: '',
   tipo: '', propietario: '',
+  foto: null,
 }
 
 export default function Establecimientos() {
@@ -45,6 +46,7 @@ export default function Establecimientos() {
       hora_cierre: e.hora_cierre, descripcion: e.descripcion,
       latitud: e.latitud, longitud: e.longitud,
       tipo: e.tipo, propietario: e.propietario,
+      foto: e.foto || null,
     })
     setFormError('')
     setShowModal(true)
@@ -154,6 +156,44 @@ export default function Establecimientos() {
             <Field label="Direccion" value={form.direccion} onChange={v => setForm(f => ({ ...f, direccion: v }))} />
             <Field label="Telefono" value={form.telefono} onChange={v => setForm(f => ({ ...f, telefono: v }))} />
             <Field label="Descripcion" value={form.descripcion} onChange={v => setForm(f => ({ ...f, descripcion: v }))} />
+              {/* Foto principal */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                Foto principal
+              </label>
+              <div
+                onClick={() => document.getElementById('input-foto-estab').click()}
+                className="relative w-full h-36 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer overflow-hidden transition-colors group"
+              >
+                {form.foto_preview ? (
+                  <>
+                    <img src={form.foto_preview} alt="preview"
+                      className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-white text-xs font-medium">Cambiar foto</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-400">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M13.5 12a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" />
+                    </svg>
+                    <span className="text-xs">Click para subir foto</span>
+                  </div>
+                )}
+              </div>
+              <input id="input-foto-estab" type="file" accept="image/*" className="hidden"
+                onChange={e => {
+                  const file = e.target.files[0]
+                  if (!file) return
+                  setForm(f => ({
+                    ...f,
+                    foto: file,
+                    foto_preview: URL.createObjectURL(file)
+                  }))
+                }}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Hora apertura" type="time" value={form.hora_apertura} onChange={v => setForm(f => ({ ...f, hora_apertura: v }))} />
               <Field label="Hora cierre" type="time" value={form.hora_cierre} onChange={v => setForm(f => ({ ...f, hora_cierre: v }))} />

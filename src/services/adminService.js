@@ -9,8 +9,51 @@ export const adminService = {
 
   // Establecimientos
   getEstablecimientos:   () => api.get('/establecimientos/'),
-  createEstablecimiento: (data) => api.post('/establecimientos/crear/', data),
-  updateEstablecimiento: (id, data) => api.patch(`/api/admin/establecimientos/${id}/`, data),
+  createEstablecimiento: (data) => {
+    const formData = new FormData()
+
+    formData.append('nombre', data.nombre)
+    formData.append('direccion', data.direccion)
+    formData.append('telefono', data.telefono)
+    formData.append('hora_apertura', data.hora_apertura)
+    formData.append('hora_cierre', data.hora_cierre)
+    formData.append('descripcion', data.descripcion)
+    formData.append('latitud', data.latitud)
+    formData.append('longitud', data.longitud)
+    formData.append('tipo', data.tipo)
+    formData.append('propietario', data.propietario)
+
+    // 👇 igual que en perfil
+    if (data.foto) {
+      formData.append('foto', data.foto)
+    }
+
+    return api.post('/establecimientos/crear/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },  
+  updateEstablecimiento: (id, data) => {
+    const formData = new FormData()
+  
+    formData.append('nombre', data.nombre)
+    formData.append('direccion', data.direccion)
+    formData.append('telefono', data.telefono)
+    formData.append('hora_apertura', data.hora_apertura)
+    formData.append('hora_cierre', data.hora_cierre)
+    formData.append('descripcion', data.descripcion)
+    formData.append('latitud', data.latitud)
+    formData.append('longitud', data.longitud)
+    formData.append('tipo', data.tipo)
+    formData.append('propietario', data.propietario)
+  
+    if (data.foto) {
+      formData.append('foto', data.foto)
+    }
+  
+    return api.patch(`/api/admin/establecimientos/${id}/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
   deleteEstablecimiento: (id) => api.delete(`/api/admin/establecimientos/${id}/`),
 
   // Servicios
