@@ -8,6 +8,7 @@ import MiPerfil        from '../pages/cliente/MiPerfil'
 import MisVehiculos    from '../pages/cliente/MisVehiculos'
 import Establecimientos from '../pages/cliente/Establecimientos'
 import DetalleEstablecimiento from '../pages/cliente/DetalleEstablecimiento'
+import Mapa      from '../pages/cliente/Mapa'   
 
 export default function ClienteRoutes() {
   return (
@@ -28,6 +29,7 @@ export default function ClienteRoutes() {
         <Route path="mi-perfil"      element={<MiPerfil />} />
         <Route path="mis-vehiculos"  element={<MisVehiculos />} />
         <Route path="establecimientos/:id" element={<DetalleEstablecimiento />} />
+        <Route path="mapa"           element={<Mapa />} />
       </Route>
     </Routes>
   )
