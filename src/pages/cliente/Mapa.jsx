@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
@@ -226,6 +227,10 @@ export default function MapaPage() {
   const [bounds, setBounds]                   = useState(null)
   const [sidebarOpen, setSidebarOpen]         = useState(true)
 
+  const handleBoundsChange = useCallback((b) => {
+    setBounds(b)
+  }, [])
+
   const CENTRO_DEFAULT = [2.4419, -76.6063]   // Popayán, Colombia
 
   // ── Cargar establecimientos ──
@@ -236,16 +241,22 @@ export default function MapaPage() {
   }, [])
 
   // ── Filtrar por tipo + búsqueda ──
-  const filtrados = todos.filter(e => {
-    const pasaTipo = filtro === 'todos' || e.tipo_nombre?.toLowerCase() === filtro
-    const pasaBusq = !busqueda || e.nombre?.toLowerCase().includes(busqueda.toLowerCase())
-    return pasaTipo && pasaBusq
-  })
+  const filtrados = useMemo(() => {
+    return todos.filter(e => {
+      const pasaTipo = filtro === 'todos' || e.tipo_nombre?.toLowerCase() === filtro
+      const pasaBusq = !busqueda || e.nombre?.toLowerCase().includes(busqueda.toLowerCase())
+      return pasaTipo && pasaBusq
+    })
+  }, [todos, filtro, busqueda])
 
   // ── Establecimientos visibles en el área actual del mapa ──
   const [visiblesEnMapa, setVisiblesEnMapa] = useState([])
   useEffect(() => {
-    if (!bounds) { setVisiblesEnMapa(filtrados); return }
+    if (!bounds) { 
+      setVisiblesEnMapa(filtrados); 
+      return 
+    }
+  
     setVisiblesEnMapa(
       filtrados.filter(e => {
         if (!e.latitud || !e.longitud) return false
@@ -296,7 +307,7 @@ export default function MapaPage() {
     <div className="flex flex-col h-screen pt-16 bg-gray-50 dark:bg-gray-950">
 
       {/* ── BARRA SUPERIOR ── */}
-      <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-2.5 flex flex-wrap items-center gap-3 z-20 shadow-sm">
+      <div className="shrink-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 px-4 py-2.5 flex flex-wrap items-center gap-3 z-20 shadow-sm">
 
         {/* Buscador */}
         <div className="relative flex-1 min-w-[180px] max-w-xs">
@@ -404,7 +415,7 @@ export default function MapaPage() {
         <aside className={`
           absolute lg:relative z-10 h-full
           w-80 shrink-0
-          bg-white dark:bg-gray-900
+          bg-white/70 dark:bg-gray-900/70 backdrop-blur-md
           border-r border-gray-200 dark:border-gray-800
           flex flex-col
           transition-transform duration-300 ease-in-out shadow-xl lg:shadow-none
@@ -492,9 +503,7 @@ export default function MapaPage() {
                 y ponemos uno custom si se requiere. Por ahora Leaflet's built-in es suficiente. */}
 
             {/* Detección de movimiento del mapa para actualizar lista */}
-            <MapBoundsTracker onBoundsChange={(b) => {
-              setBounds(b)
-            }} />
+            <MapBoundsTracker onBoundsChange={handleBoundsChange} />
 
             {/* Volar a mi ubicación */}
             {flyUser && <FlyToLocation coords={flyUser} />}
@@ -561,9 +570,6 @@ function MapBoundsTracker({ onBoundsChange }) {
     zoomend:  () => onBoundsChange(map.getBounds()),
     load:     () => onBoundsChange(map.getBounds()),
   })
-  useEffect(() => {
-    // Emitir bounds iniciales
-    onBoundsChange(map.getBounds())
-  }, [])
+
   return null
 }
