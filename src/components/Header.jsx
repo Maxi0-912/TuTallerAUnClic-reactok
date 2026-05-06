@@ -8,7 +8,6 @@ const NAV_LINKS = [
   { to: '/establecimientos', label: 'Talleres y Lavaderos' },
   { to: '/mapa',             label: 'Mapa' },
   { to: '/mis-citas',        label: 'Mis citas' },
-  { to: '/entretenimiento',  label: 'Entretenimiento' },
 ]
 
 export default function Header() {

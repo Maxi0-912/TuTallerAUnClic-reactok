@@ -178,7 +178,6 @@ export default function EmpresaLayout() {
                     }`
                   }
                 >
-                  <span className="hidden md:block">Entretenimiento</span>
                 </NavLink>
 
               {/* Toggle tema */}
