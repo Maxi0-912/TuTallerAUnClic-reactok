@@ -139,10 +139,10 @@ function ModalEstablecimiento({ editing, tipos, onClose, onGuardado }) {
             <Field label="Nombre *" value={form.nombre} onChange={v => f('nombre', v)} />
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo *</label>
-              <select value={form.tipo} onChange={e => f('tipo', e.target.value)}
+              <select value={String(form.tipo)} onChange={e => f('tipo', e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">— Seleccionar —</option>
-                {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                {tipos.map(t => <option key={t.id} value={String(t.id)}>{t.nombre}</option>)}
               </select>
             </div>
           </div>

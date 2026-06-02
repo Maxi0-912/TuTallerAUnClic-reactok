@@ -82,7 +82,60 @@ function ModalCambiarEstado({ cita, onClose, onGuardado }) {
   )
 }
 
-function TarjetaCita({ cita, onCambiarEstado }) {
+function ModalComentario({ cita, onClose, onGuardado }) {
+  const [comentario, setComentario] = useState(cita.comentario_empresa ?? '')
+  const [saving, setSaving]         = useState(false)
+  const [error, setError]           = useState('')
+
+  async function handleGuardar() {
+    if (!comentario.trim()) { setError('Escribe un comentario'); return }
+    setSaving(true); setError('')
+    try {
+      await api.patch(`/citas/${cita.id}/comentario/`, { comentario_empresa: comentario.trim() })
+      onGuardado()
+      onClose()
+    } catch {
+      setError('Error al guardar el comentario')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-6">
+        <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">Comentario del servicio</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
+          {cita.usuario_nombre} · {cita.establecimiento_nombre} · {cita.fecha}
+        </p>
+
+        <textarea
+          value={comentario}
+          onChange={e => setComentario(e.target.value)}
+          rows={4}
+          placeholder="Escribe las observaciones del servicio realizado..."
+          className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none mb-4"
+        />
+
+        {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            Cancelar
+          </button>
+          <button onClick={handleGuardar} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2">
+            {saving && <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />}
+            {saving ? 'Guardando...' : 'Guardar comentario'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TarjetaCita({ cita, onCambiarEstado, onAgregarComentario }) {
   return (
     <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
@@ -118,10 +171,31 @@ function TarjetaCita({ cita, onCambiarEstado }) {
         </div>
       )}
 
+      {cita.descripcion && (
+        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2">
+          <p className="text-xs text-gray-400 mb-0.5">Observación del cliente</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">{cita.descripcion}</p>
+        </div>
+      )}
+
       {cita.notas && (
         <p className="text-xs text-gray-400 dark:text-gray-500 italic bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2">
           "{cita.notas}"
         </p>
+      )}
+
+      {cita.estado === 'finalizada' && (
+        cita.comentario_empresa ? (
+          <div className="bg-green-50 dark:bg-green-950/30 rounded-lg px-3 py-2">
+            <p className="text-xs text-green-500 mb-0.5">Comentario de la empresa</p>
+            <p className="text-sm text-green-800 dark:text-green-200">{cita.comentario_empresa}</p>
+          </div>
+        ) : (
+          <button onClick={() => onAgregarComentario(cita)}
+            className="w-full py-2 rounded-xl border border-green-400 dark:border-green-600 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950 text-xs font-semibold transition-colors">
+            + Agregar comentario del servicio
+          </button>
+        )
       )}
 
       {cita.estado !== 'cancelada' && cita.estado !== 'finalizada' && (
@@ -140,7 +214,8 @@ export default function Citas() {
   const [filtroEstado, setFiltroEstado] = useState('todas')
   const [filtroEstab, setFiltroEstab]   = useState('todos')
   const [busqueda, setBusqueda]         = useState('')
-  const [citaModal, setCitaModal]       = useState(null)
+  const [citaModal, setCitaModal]             = useState(null)
+  const [comentarioModal, setComentarioModal] = useState(null)
 
   useEffect(() => { fetchCitas() }, [])
 
@@ -233,7 +308,7 @@ export default function Citas() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtradas.map(c => (
-            <TarjetaCita key={c.id} cita={c} onCambiarEstado={setCitaModal} />
+            <TarjetaCita key={c.id} cita={c} onCambiarEstado={setCitaModal} onAgregarComentario={setComentarioModal} />
           ))}
         </div>
       )}
@@ -242,6 +317,14 @@ export default function Citas() {
         <ModalCambiarEstado
           cita={citaModal}
           onClose={() => setCitaModal(null)}
+          onGuardado={fetchCitas}
+        />
+      )}
+
+      {comentarioModal && (
+        <ModalComentario
+          cita={comentarioModal}
+          onClose={() => setComentarioModal(null)}
           onGuardado={fetchCitas}
         />
       )}

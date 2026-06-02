@@ -13,7 +13,85 @@ function Field({ label, value, onChange, placeholder = '' }) {
   )
 }
 
-function Modal({ editing, establecimientos, tiposServicio, onClose, onGuardado }) {
+function CreatableSelect({ value, onChange, options, onCreateOption, disabled }) {
+  const [inputValue, setInputValue] = useState('')
+  const [isOpen, setIsOpen]         = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+
+  const filtered       = options.filter(o => o.nombre.toLowerCase().includes(inputValue.toLowerCase()))
+  const exactMatch     = options.some(o => o.nombre.toLowerCase() === inputValue.toLowerCase())
+  const selectedOption = options.find(o => String(o.id) === String(value))
+
+  function handleSelect(id) {
+    onChange(String(id))
+    setInputValue('')
+    setIsOpen(false)
+  }
+
+  async function handleCreate() {
+    if (!inputValue.trim() || isCreating) return
+    setIsCreating(true)
+    try {
+      const res = await onCreateOption(inputValue.trim())
+      onChange(String(res.id))
+      setInputValue('')
+      setIsOpen(false)
+    } catch {}
+    setIsCreating(false)
+  }
+
+  return (
+    <div className="relative">
+      <div
+        className={`w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 flex items-center justify-between${disabled ? ' opacity-50 cursor-not-allowed' : ' cursor-pointer'}`}
+        onClick={() => { if (!disabled) setIsOpen(o => !o) }}
+      >
+        <span className={selectedOption ? '' : 'text-gray-400'}>
+          {selectedOption ? selectedOption.nombre : 'Buscar o crear tipo...'}
+        </span>
+        <svg className="w-4 h-4 text-gray-400 shrink-0 ml-2" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {isOpen && !disabled && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg">
+          <div className="p-2">
+            <input
+              autoFocus
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              placeholder="Buscar o escribir nuevo tipo..."
+              className="w-full px-2 py-1.5 text-sm rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+          <div className="max-h-40 overflow-y-auto">
+            {filtered.map(o => (
+              <div key={o.id}
+                onClick={() => handleSelect(o.id)}
+                className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100">
+                {o.nombre}
+              </div>
+            ))}
+            {inputValue.trim() && !exactMatch && (
+              <div onClick={handleCreate}
+                className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950 text-blue-600 font-medium border-t border-gray-100 dark:border-gray-700">
+                {isCreating ? '⏳ Creando...' : `+ Crear: "${inputValue.trim()}"`}
+              </div>
+            )}
+            {filtered.length === 0 && !inputValue.trim() && (
+              <div className="px-3 py-2 text-sm text-gray-400">Escribe para buscar o crear</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Modal({ editing, establecimientos, tiposServicio, onClose, onGuardado, onTipoCreado }) {
   const [form, setForm] = useState(editing ? {
     nombre:          editing.nombre,
     establecimiento: String(editing.establecimiento_id),
@@ -22,18 +100,35 @@ function Modal({ editing, establecimientos, tiposServicio, onClose, onGuardado }
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
 
+  const estabSeleccionado = establecimientos.find(e => String(e.id) === form.establecimiento)
+  const tipoNombre = estabSeleccionado?.tipo_nombre?.toLowerCase() ?? ''
+  const tiposFiltrados = !form.establecimiento
+    ? tiposServicio
+    : tipoNombre.includes('taller')
+      ? tiposServicio.filter(t => !t.nombre.toLowerCase().includes('lavado'))
+      : tipoNombre.includes('lavadero')
+        ? tiposServicio.filter(t => t.nombre.toLowerCase().includes('lavado'))
+        : tiposServicio
+
   function f(k, v) { setForm(p => ({ ...p, [k]: v })) }
 
+  async function handleCreateTipo(nombre) {
+    const res = await api.post('/tipos-servicio/crear/', { nombre })
+    onTipoCreado(res.data)
+    return res.data
+  }
+
   async function handleSave() {
-    if (!form.nombre || !form.establecimiento || !form.tipo_servicio) {
+    console.log('form al guardar:', JSON.stringify(form))
+    if (!form.nombre.trim() || !form.establecimiento || !form.tipo_servicio) {
       setError('Todos los campos son obligatorios'); return
     }
     setSaving(true); setError('')
     try {
       const payload = {
-        nombre:          form.nombre,
-        establecimiento: parseInt(form.establecimiento),
-        tipo_servicio:   parseInt(form.tipo_servicio),
+        nombre:          form.nombre.trim(),
+        establecimiento: Number(form.establecimiento),
+        tipo_servicio:   Number(form.tipo_servicio),
       }
       if (editing) {
         await api.patch(`/empresa/servicios/${editing.id}/`, payload)
@@ -41,7 +136,10 @@ function Modal({ editing, establecimientos, tiposServicio, onClose, onGuardado }
         await api.post('/empresa/servicios/crear/', payload)
       }
       onGuardado(); onClose()
-    } catch { setError('Error al guardar') }
+    } catch (e) {
+      console.error(e)
+      setError('Error al guardar')
+    }
     setSaving(false)
   }
 
@@ -67,7 +165,7 @@ function Modal({ editing, establecimientos, tiposServicio, onClose, onGuardado }
 
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Establecimiento *</label>
-            <select value={form.establecimiento} onChange={e => f('establecimiento', e.target.value)}
+            <select value={form.establecimiento} onChange={e => setForm(p => ({ ...p, establecimiento: e.target.value, tipo_servicio: '' }))}
               className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">— Seleccionar —</option>
               {establecimientos.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
@@ -76,11 +174,16 @@ function Modal({ editing, establecimientos, tiposServicio, onClose, onGuardado }
 
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de servicio *</label>
-            <select value={form.tipo_servicio} onChange={e => f('tipo_servicio', e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">— Seleccionar —</option>
-              {tiposServicio.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
+            <CreatableSelect
+              value={form.tipo_servicio}
+              onChange={v => f('tipo_servicio', v)}
+              options={tiposFiltrados}
+              onCreateOption={handleCreateTipo}
+              disabled={!form.establecimiento}
+            />
+            {!form.establecimiento && (
+              <p className="text-xs text-gray-400 mt-1">Selecciona primero un establecimiento</p>
+            )}
           </div>
 
           {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950 px-3 py-2 rounded-lg">{error}</p>}
@@ -240,7 +343,8 @@ export default function Servicios() {
 
       {modal && (
         <Modal editing={editing} establecimientos={establecimientos}
-          tiposServicio={tiposServicio} onClose={() => setModal(false)} onGuardado={fetchAll} />
+          tiposServicio={tiposServicio} onClose={() => setModal(false)} onGuardado={fetchAll}
+          onTipoCreado={tipo => setTiposServicio(prev => [...prev, tipo])} />
       )}
 
       {deleteId && (

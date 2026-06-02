@@ -92,7 +92,98 @@ function ModalResena({ cita, onClose, onGuardada }) {
   )
 }
 
-function TarjetaCita({ cita, onCancelar, onResenar, onEditar, onEliminar }) {
+function ModalDetalleCita({ cita, onClose, onResenar }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden">
+
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-white text-base">{cita.establecimiento_nombre}</h3>
+              <p className="text-xs text-white/70 mt-0.5">Cita #{cita.id} · {cita.fecha}</p>
+            </div>
+            <button onClick={onClose}
+              className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="px-6 py-5 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Fecha',    value: cita.fecha },
+              { label: 'Hora',     value: cita.hora?.slice(0,5) },
+              { label: 'Vehículo', value: cita.vehiculo_placa },
+              { label: 'Estado',   value: cita.estado },
+            ].map(item => (
+              <div key={item.label} className="bg-slate-700/50 rounded-xl px-3 py-2">
+                <p className="text-xs text-slate-400">{item.label}</p>
+                <p className="text-sm text-white font-medium mt-0.5">{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {(cita.servicio_nombre || cita.servicio_texto) && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3">
+              <p className="text-xs text-blue-400 mb-1">Servicio</p>
+              <p className="text-sm text-blue-200 font-medium">
+                {cita.servicio_nombre ?? cita.servicio_texto}
+              </p>
+            </div>
+          )}
+
+          {cita.descripcion && (
+            <div className="bg-slate-700/50 rounded-xl px-4 py-3">
+              <p className="text-xs text-slate-400 mb-1">Tu solicitud</p>
+              <p className="text-sm text-slate-200">{cita.descripcion}</p>
+            </div>
+          )}
+
+          {cita.comentario_empresa ? (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                </div>
+                <p className="text-xs text-green-400 font-medium">Comentario del taller</p>
+              </div>
+              <p className="text-sm text-green-200">{cita.comentario_empresa}</p>
+            </div>
+          ) : (
+            <div className="bg-slate-700/30 rounded-xl px-4 py-3 border border-dashed border-slate-600">
+              <p className="text-xs text-slate-500 text-center">El taller aún no ha agregado comentarios</p>
+            </div>
+          )}
+
+          {cita.tiene_resena ? (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3">
+              <p className="text-xs text-yellow-400 mb-1">Tu reseña</p>
+              <p className="text-sm text-yellow-200">Ya calificaste este servicio ★</p>
+            </div>
+          ) : (
+            <button onClick={() => { onClose(); onResenar(cita) }}
+              className="w-full py-2.5 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30 text-sm font-medium transition-colors flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              Calificar este servicio
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TarjetaCita({ cita, onCancelar, onResenar, onEditar, onEliminar, onVerDetalle }) {
   const cfg = ESTADO_CONFIG[cita.estado] ?? ESTADO_CONFIG.pendiente
   const [confirmando, setConfirmando] = useState(false)
 
@@ -159,18 +250,16 @@ function TarjetaCita({ cita, onCancelar, onResenar, onEditar, onEliminar }) {
           </p>
         )}
 
-        {/* Finalizada: dejar reseña */}
-        {cita.estado === 'finalizada' && !cita.tiene_resena && (
-          <button onClick={() => onResenar(cita)}
-            className="flex-1 py-2 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30 text-xs font-medium transition-colors flex items-center justify-center gap-1.5">
-            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        {/* Finalizada: ver detalle */}
+        {cita.estado === 'finalizada' && (
+          <button onClick={() => onVerDetalle(cita)}
+            className="flex-1 py-2 rounded-xl border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 text-xs font-medium transition-colors flex items-center justify-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Dejar reseña
+            Ver detalle
           </button>
-        )}
-        {cita.estado === 'finalizada' && cita.tiene_resena && (
-          <p className="flex-1 py-2 text-center text-xs text-slate-500">Reseña publicada ✓</p>
         )}
 
         {/* Cancelada: eliminar */}
@@ -204,7 +293,8 @@ export default function MisCitas() {
   const [citas, setCitas]         = useState([])
   const [loading, setLoading]     = useState(true)
   const [filtro, setFiltro]       = useState('todas')
-  const [citaResena, setCitaResena] = useState(null)
+  const [citaResena, setCitaResena]     = useState(null)
+  const [citaDetalle, setCitaDetalle]   = useState(null)
   const [citaEditando, setCitaEditando] = useState(null)
   const [editForm, setEditForm]         = useState({ fecha: '', hora: '' })
   const [editando, setEditando]         = useState(false)
@@ -315,9 +405,10 @@ async function handleEliminar(id) {
             {filtradas.map(c => (
               <TarjetaCita key={c.id} cita={c}
                 onCancelar={handleCancelar}
-                onResenar={cita => setCitaResena(cita)}
+                onResenar={setCitaResena}
                 onEditar={abrirEdicion}
-                onEliminar={handleEliminar} />
+                onEliminar={handleEliminar}
+                onVerDetalle={setCitaDetalle} />
             ))}
           </div>
         )}
@@ -365,6 +456,14 @@ async function handleEliminar(id) {
         </div>
       </div>
     )}
+
+      {citaDetalle && (
+        <ModalDetalleCita
+          cita={citaDetalle}
+          onClose={() => setCitaDetalle(null)}
+          onResenar={cita => { setCitaDetalle(null); setCitaResena(cita) }}
+        />
+      )}
 
       {citaResena && (
         <ModalResena
