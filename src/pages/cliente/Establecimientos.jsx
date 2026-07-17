@@ -87,7 +87,7 @@ function CardEstablecimiento({ e, distancia }) {
           {e.nombre}
         </h3>
 
-        <Estrellas valor={e.promedio_calificacion} />
+        <Estrellas valor={e.calificacion_promedio} />
 
         <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -165,7 +165,7 @@ export default function Establecimientos() {
         : null
     }))
     .sort((a, b) => {
-      if (orden === 'calificacion') return (b.promedio_calificacion ?? 0) - (a.promedio_calificacion ?? 0)
+      if (orden === 'calificacion') return (b.calificacion_promedio ?? 0) - (a.calificacion_promedio ?? 0)
       if (orden === 'cercanos' && a.distancia !== null) return a.distancia - b.distancia
       return b.id - a.id // recientes
     })

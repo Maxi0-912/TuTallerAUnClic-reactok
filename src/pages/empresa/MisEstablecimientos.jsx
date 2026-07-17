@@ -220,8 +220,8 @@ function CardEstablecimiento({ e, onEdit, onDelete }) {
         <p className="text-xs text-gray-500 dark:text-gray-400">
           🕐 {e.hora_apertura?.slice(0,5)} – {e.hora_cierre?.slice(0,5)}
         </p>
-        {e.promedio_calificacion && (
-          <p className="text-xs text-yellow-500 font-medium">★ {e.promedio_calificacion}</p>
+        {e.calificacion_promedio && (
+          <p className="text-xs text-yellow-500 font-medium">★ {e.calificacion_promedio}</p>
         )}
       </div>
 

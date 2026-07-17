@@ -473,10 +473,10 @@ export default function DetalleEstablecimiento() {
               </svg>
               {estab.direccion}
             </p>
-            {estab.promedio_calificacion && (
+            {estab.calificacion_promedio && (
               <div className="flex items-center gap-2 mt-2">
-                <Estrellas valor={estab.promedio_calificacion} />
-                <span className="text-sm text-white font-semibold">{estab.promedio_calificacion}</span>
+                <Estrellas valor={estab.calificacion_promedio} />
+                <span className="text-sm text-white font-semibold">{estab.calificacion_promedio}</span>
               </div>
             )}
           </div>
