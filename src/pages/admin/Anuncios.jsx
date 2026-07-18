@@ -7,8 +7,14 @@ const TIPOS = [
   { value: 'imagen_boton', label: 'Imagen con boton' },
 ]
 
+const CATEGORIAS = [
+  { value: 'banner', label: 'Banner' },
+  { value: 'oferta',  label: 'Oferta' },
+]
+
 const EMPTY = {
   titulo: '', descripcion: '', tipo: 'imagen',
+  categoria: 'banner', descuento: '',
   texto_boton: '', url_boton: '', establecimiento: '',
   activo: true, orden: 0, fecha_inicio: '', fecha_fin: '',
 }
@@ -57,6 +63,8 @@ export default function Anuncios() {
       titulo:          a.titulo         ?? '',
       descripcion:     a.descripcion    ?? '',
       tipo:            a.tipo           ?? 'imagen',
+      categoria:       a.categoria      ?? 'banner',
+      descuento:       a.descuento      ?? '',
       texto_boton:     a.texto_boton    ?? '',
       url_boton:       a.url_boton      ?? '',
       establecimiento: a.establecimiento ?? '',
@@ -264,14 +272,28 @@ export default function Anuncios() {
                 <input ref={fileRef} type="file" accept="image/*" onChange={handleImagen} className="hidden" />
               </div>
 
-              {/* Tipo */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de anuncio</label>
-                <select value={form.tipo} onChange={e => f('tipo', e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+              {/* Tipo y categoria */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tipo de anuncio</label>
+                  <select value={form.tipo} onChange={e => f('tipo', e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Categoria</label>
+                  <select value={form.categoria} onChange={e => f('categoria', e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
               </div>
+
+              {/* Descuento — solo si la categoria es oferta */}
+              {form.categoria === 'oferta' && (
+                <Field label="Descuento" value={form.descuento} onChange={v => f('descuento', v)} placeholder="ej: 20% OFF" />
+              )}
 
               {/* Titulo y descripcion — solo si no es solo imagen */}
               {form.tipo !== 'imagen' && (

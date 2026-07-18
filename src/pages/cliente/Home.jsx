@@ -163,23 +163,20 @@ function CarruselAnuncios({ anuncios }) {
             <div key={a.id} className="absolute inset-0 transition-opacity duration-700"
               style={{ opacity: i === current ? 1 : 0, pointerEvents: i === current ? 'auto' : 'none' }}>
               <img src={a.imagen_url} alt={a.titulo} className="w-full h-full object-cover" draggable={false} />
-              {(a.tipo === 'imagen_texto' || a.tipo === 'imagen_boton') && (
-                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent flex items-center">
-                  <div className="px-10 max-w-lg">
-                    {a.titulo && <h3 className="text-white text-2xl sm:text-3xl font-black mb-2 drop-shadow-lg">{a.titulo}</h3>}
-                    {a.descripcion && <p className="text-white/80 text-sm sm:text-base mb-4 leading-relaxed">{a.descripcion}</p>}
-                    {a.tipo === 'imagen_boton' && a.texto_boton && a.url_boton && (
-                      <Link to={a.url_boton} onClick={e => e.stopPropagation()}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors shadow-lg">
-                        {a.texto_boton}
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                        </svg>
-                      </Link>
-                    )}
-                  </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent flex items-center">
+                <div className="px-10 max-w-lg">
+                  {a.titulo && <h3 className="text-white text-2xl sm:text-3xl font-black mb-2 drop-shadow-lg">{a.titulo}</h3>}
+                  {a.descripcion && <p className="text-white/80 text-sm sm:text-base mb-4 leading-relaxed">{a.descripcion}</p>}
+                  <Link to={a.establecimiento ? `/establecimientos/${a.establecimiento}` : '/establecimientos'}
+                    onClick={e => e.stopPropagation()}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors shadow-lg">
+                    Ver más
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  </Link>
                 </div>
-              )}
+              </div>
             </div>
           ))}
 
@@ -267,6 +264,51 @@ function SeccionCategories() {
             </div>
           </Link>
 
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── OFERTAS ESPECIALES ───────────────────────────────────────────────────────
+
+function CardOferta({ oferta }) {
+  const contenido = (
+    <div className="group relative rounded-2xl overflow-hidden shadow-xl h-64 cursor-pointer">
+      {oferta.imagen_url ? (
+        <img src={oferta.imagen_url} alt={oferta.titulo}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+      ) : (
+        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-800" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+      {oferta.descuento && (
+        <span className="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold bg-red-600 text-white shadow-lg">
+          {oferta.descuento}
+        </span>
+      )}
+      <div className="absolute bottom-0 left-0 right-0 p-5">
+        {oferta.titulo && <h3 className="text-white text-lg font-bold mb-1">{oferta.titulo}</h3>}
+        {oferta.descripcion && <p className="text-white/70 text-xs leading-relaxed line-clamp-2">{oferta.descripcion}</p>}
+      </div>
+    </div>
+  )
+
+  return oferta.establecimiento
+    ? <Link to={`/establecimientos/${oferta.establecimiento}`}>{contenido}</Link>
+    : contenido
+}
+
+function SeccionOfertas({ ofertas }) {
+  return (
+    <section className="py-16 px-4">
+      <div className="max-w-5xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Ofertas especiales</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Promociones activas en talleres y lavaderos</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {ofertas.map(o => <CardOferta key={o.id} oferta={o} />)}
         </div>
       </div>
     </section>
@@ -512,15 +554,21 @@ function SeccionFinal({ stats }) {
 // ─── HOME PRINCIPAL ───────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [anuncios, setAnuncios]               = useState([])
+  const [banners, setBanners]                 = useState([])
+  const [ofertas, setOfertas]                 = useState([])
   const [establecimientos, setEstablecimientos] = useState([])
   const [stats, setStats]                     = useState(null)
 
   useEffect(() => {
-    // Anuncios publicos
-    api.get('/anuncios/')
-      .then(res => setAnuncios(Array.isArray(res.data) ? res.data : res.data.results ?? []))
-      .catch(() => setAnuncios([]))
+    // Banners del carrusel
+    api.get('/anuncios/?categoria=banner')
+      .then(res => setBanners(Array.isArray(res.data) ? res.data : res.data.results ?? []))
+      .catch(() => setBanners([]))
+
+    // Ofertas especiales
+    api.get('/anuncios/?categoria=oferta')
+      .then(res => setOfertas(Array.isArray(res.data) ? res.data : res.data.results ?? []))
+      .catch(() => setOfertas([]))
 
     // Establecimientos para el mapa
     api.get('/establecimientos/')
@@ -536,8 +584,9 @@ export default function Home() {
   return (
     <div>
       <HeroSection stats={stats} />
-      {anuncios.length > 0 && <CarruselAnuncios anuncios={anuncios} />}
+      {banners.length > 0 && <CarruselAnuncios anuncios={banners} />}
       <SeccionCategories />
+      {ofertas.length > 0 && <SeccionOfertas ofertas={ofertas} />}
       <SeccionComoFunciona />
       <SeccionMapaPreview establecimientos={establecimientos} />
       <SeccionFinal stats={stats} />
