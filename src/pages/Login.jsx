@@ -3,10 +3,21 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { Link } from 'react-router-dom'
+import GoogleLoginButton from '../components/GoogleLoginButton'
 import logo from '../assets/logo_solo.png'
 
+function redirigirPorRol(navigate, rolNombre) {
+  if (rolNombre === 'admin') {
+    navigate('/admin/dashboard')
+  } else if (rolNombre === 'empresa') {
+    navigate('/empresa/dashboard')
+  } else {
+    navigate('/inicio')
+  }
+}
+
 export default function Login() {
-  const { login }    = useAuth()
+  const { login, loginWithGoogle } = useAuth()
   const { dark, setDark } = useTheme()
   const navigate     = useNavigate()
 
@@ -25,20 +36,21 @@ export default function Login() {
 
     try {
       const user = await login(form.username, form.password)
-
-      const rolNombre = user.rol_nombre?.toLowerCase()
-
-      if (rolNombre === 'admin') {
-        navigate('/admin/dashboard')
-      } else if (rolNombre === 'empresa') {
-        navigate('/empresa/dashboard')
-      } else {
-        navigate('/inicio')
-      }
+      redirigirPorRol(navigate, user.rol_nombre?.toLowerCase())
     } catch (err) {
       setError('Usuario o contraseña incorrectos')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleGoogleCredential(idToken) {
+    setError('')
+    try {
+      const user = await loginWithGoogle(idToken)
+      redirigirPorRol(navigate, user.rol_nombre?.toLowerCase())
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'No se pudo iniciar sesion con Google')
     }
   }
 
@@ -124,6 +136,19 @@ export default function Login() {
               )}
               {loading ? 'Ingresando...' : 'Ingresar'}
             </button>
+
+            {/* Divisor */}
+            <div className="flex items-center gap-3 my-1">
+              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+              <span className="text-xs text-gray-400 dark:text-gray-500">o continúa con</span>
+              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+            </div>
+
+            <GoogleLoginButton
+              dark={dark}
+              onCredential={handleGoogleCredential}
+              onError={() => setError('No se pudo cargar Google Sign-In')}
+            />
           </div>
         </div>
 

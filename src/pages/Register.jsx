@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
+import GoogleLoginButton from '../components/GoogleLoginButton'
 import logo from '../assets/logo_solo.png'
 
 const ROLES_PUBLICOS = [
@@ -24,7 +25,7 @@ const EMPTY_FORM = {
 export default function Register() {
   const { dark, setDark } = useTheme()
   const navigate          = useNavigate()
-  const { login }         = useAuth()
+  const { login, loginWithGoogle } = useAuth()
 
   const [form, setForm]     = useState(EMPTY_FORM)
   const [error, setError]   = useState('')
@@ -97,6 +98,24 @@ if (rolNombre === 'empresa') {
 
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleGoogleCredential(idToken) {
+    setError('')
+    try {
+      const perfilData = await loginWithGoogle(idToken)
+      const rolNombre   = perfilData?.rol_nombre?.toLowerCase()
+
+      if (rolNombre === 'empresa') {
+        navigate('/empresa/dashboard')
+      } else if (rolNombre === 'admin') {
+        navigate('/admin/dashboard')
+      } else {
+        navigate('/inicio')
+      }
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'No se pudo continuar con Google')
     }
   }
 
@@ -192,6 +211,19 @@ if (rolNombre === 'empresa') {
               )}
               {loading ? 'Creando cuenta...' : 'Crear cuenta'}
             </button>
+
+            {/* Divisor */}
+            <div className="flex items-center gap-3 my-1">
+              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+              <span className="text-xs text-gray-400 dark:text-gray-500">o continúa con</span>
+              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+            </div>
+
+            <GoogleLoginButton
+              dark={dark}
+              onCredential={handleGoogleCredential}
+              onError={() => setError('No se pudo cargar Google Sign-In')}
+            />
           </div>
         </div>
 

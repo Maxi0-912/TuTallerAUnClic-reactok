@@ -32,13 +32,23 @@ export function AuthProvider({ children }) {
     return perfil.data
   }
 
+  async function loginWithGoogle(idToken) {
+    const res = await api.post('/usuarios/auth/google/', { id_token: idToken })
+    localStorage.setItem('access_token', res.data.access)
+    localStorage.setItem('refresh_token', res.data.refresh)
+
+    const perfil = await api.get('/usuarios/perfil/')
+    setUser(perfil.data)
+    return perfil.data
+  }
+
   function logout() {
     localStorage.clear()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, setUser, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, setUser, login, loginWithGoogle, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )
