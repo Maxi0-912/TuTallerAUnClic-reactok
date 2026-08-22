@@ -1,5 +1,15 @@
 import axios from 'axios'
 
+function expireSession() {
+  localStorage.clear()
+  if (window.location.pathname !== '/login') {
+    window.dispatchEvent(new CustomEvent('app:toast', {
+      detail: { message: 'Tu sesion expiro, inicia sesion de nuevo', type: 'warning' },
+    }))
+    window.location.href = '/login'
+  }
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   headers: {
@@ -34,13 +44,15 @@ api.interceptors.response.use(
           original.headers.Authorization = `Bearer ${res.data.access}`
           return api(original)
         } catch {
-          localStorage.clear()
-          window.location.href = '/login'
+          expireSession()
         }
       } else {
-        localStorage.clear()
-        window.location.href = '/login'
+        expireSession()
       }
+    } else if (!error.response) {
+      window.dispatchEvent(new CustomEvent('app:toast', {
+        detail: { message: 'No se pudo conectar con el servidor', type: 'error' },
+      }))
     }
 
     return Promise.reject(error)

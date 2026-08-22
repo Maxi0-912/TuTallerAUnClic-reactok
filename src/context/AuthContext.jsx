@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import api from '../services/api'
+import { useToast } from './ToastContext'
 
 const AuthContext = createContext()
 
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
   const [loading, setLoading] = useState(true)
+  const { addToast }          = useToast()
 
   useEffect(() => {
     const token = localStorage.getItem('access_token')
@@ -29,6 +31,7 @@ export function AuthProvider({ children }) {
 
     const perfil = await api.get('/usuarios/perfil/')
     setUser(perfil.data)
+    addToast(`Bienvenido, ${perfil.data.first_name || perfil.data.username}`, 'success')
     return perfil.data
   }
 
@@ -39,12 +42,14 @@ export function AuthProvider({ children }) {
 
     const perfil = await api.get('/usuarios/perfil/')
     setUser(perfil.data)
+    addToast(`Bienvenido, ${perfil.data.first_name || perfil.data.username}`, 'success')
     return perfil.data
   }
 
   function logout() {
     localStorage.clear()
     setUser(null)
+    addToast('Sesion cerrada', 'info')
   }
 
   return (

@@ -1,15 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import api from '../../services/api'
-
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl:       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-})
+import MapPicker from '../../components/MapPicker'
 
 const EMPTY = {
   nombre: '', direccion: '', telefono: '', descripcion: '',
@@ -24,27 +15,6 @@ function Field({ label, value, onChange, type = 'text', placeholder = '' }) {
       <input type={type} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-    </div>
-  )
-}
-
-function MapPicker({ lat, lng, onChange }) {
-  const center = lat && lng ? [parseFloat(lat), parseFloat(lng)] : [2.4419, -76.6063]
-
-  function ClickHandler() {
-    useMapEvents({
-      click(e) { onChange(e.latlng.lat.toFixed(6), e.latlng.lng.toFixed(6)) }
-    })
-    return null
-  }
-
-  return (
-    <div className="rounded-xl overflow-hidden border border-gray-300 dark:border-gray-600" style={{ height: 220 }}>
-      <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <ClickHandler />
-        {lat && lng && <Marker position={[parseFloat(lat), parseFloat(lng)]} />}
-      </MapContainer>
     </div>
   )
 }
@@ -170,9 +140,6 @@ function ModalEstablecimiento({ editing, tipos, onClose, onGuardado }) {
               lat={form.latitud} lng={form.longitud}
               onChange={(lat, lng) => { f('latitud', lat); f('longitud', lng) }}
             />
-            {form.latitud && form.longitud && (
-              <p className="text-xs text-blue-500 mt-1">{form.latitud}, {form.longitud}</p>
-            )}
           </div>
 
           {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950 px-3 py-2 rounded-lg">{error}</p>}
