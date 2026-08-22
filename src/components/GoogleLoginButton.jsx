@@ -22,6 +22,8 @@ function loadGisScript() {
 export default function GoogleLoginButton({ onCredential, onError, dark = false }) {
   const containerRef = useRef(null)
   const domId = useId()
+  const onCredentialRef = useRef(onCredential)
+  onCredentialRef.current = onCredential
 
   useEffect(() => {
     let cancelled = false
@@ -32,8 +34,11 @@ export default function GoogleLoginButton({ onCredential, onError, dark = false 
         const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
         window.google.accounts.id.initialize({
           client_id: clientId,
-          callback: response => onCredential(response.credential),
+          callback: response => onCredentialRef.current(response.credential),
+          cancel_on_tap_outside: true,
         })
+        // Limpia cualquier boton previo antes de re-renderizar (ej. cambio de tema)
+        containerRef.current.innerHTML = ''
         window.google.accounts.id.renderButton(containerRef.current, {
           type: 'standard',
           theme: dark ? 'filled_black' : 'outline',
@@ -45,7 +50,14 @@ export default function GoogleLoginButton({ onCredential, onError, dark = false 
       })
       .catch(err => onError?.(err.message))
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      // Cancela el prompt de GSI para que no siga manipulando el DOM
+      // despues de que React desmonte este contenedor (ej. al navegar
+      // entre /login y /register), que es lo que causaba el crash
+      // "insertBefore" al cambiar de pagina.
+      window.google?.accounts?.id?.cancel()
+    }
   }, [dark])
 
   return <div ref={containerRef} id={`google-btn-${domId}`} className="w-full flex justify-center" />
