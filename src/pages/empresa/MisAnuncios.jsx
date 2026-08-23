@@ -44,6 +44,134 @@ function BadgeEstado({ estado }) {
   )
 }
 
+function formatCOP(monto) {
+  const n = Number(monto)
+  if (Number.isNaN(n)) return monto
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+}
+
+function CopyField({ label, value, highlight = false }) {
+  const [copiado, setCopiado] = useState(false)
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(String(value))
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch { }
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{label}</label>
+      <div className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border ${
+        highlight
+          ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950'
+          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
+      }`}>
+        <span className={`font-mono ${highlight ? 'text-base font-bold text-blue-700 dark:text-blue-300' : 'text-sm text-gray-800 dark:text-gray-100'}`}>
+          {value}
+        </span>
+        <button onClick={copiar}
+          className="shrink-0 px-2.5 py-1 text-xs font-medium rounded-md bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+          {copiado ? 'Copiado ✓' : 'Copiar'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ModalPago({ anuncio, onClose }) {
+  const [info, setInfo]       = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState('')
+
+  useEffect(() => {
+    let cancelado = false
+    setLoading(true)
+    setError('')
+    api.post(`/api/empresa/anuncios/${anuncio.id}/pago/`)
+      .then(res => { if (!cancelado) setInfo(res.data) })
+      .catch(() => { if (!cancelado) setError('No se pudo generar la informacion de pago. Intenta mas tarde.') })
+      .finally(() => { if (!cancelado) setLoading(false) })
+    return () => { cancelado = true }
+  }, [anuncio.id])
+
+  const pasos = [
+    'Abri la app de Nequi',
+    'Transferi el monto al numero indicado',
+    'En la descripcion del envio, escribi la referencia',
+    'Confirma el envio en Nequi',
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]">
+
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Completar pago</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-6 py-5 flex flex-col gap-4">
+          {loading && (
+            <div className="flex items-center justify-center py-10">
+              <div className="w-6 h-6 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+            </div>
+          )}
+
+          {!loading && error && (
+            <p className="text-sm text-red-500 bg-red-50 dark:bg-red-950 px-3 py-2 rounded-lg">{error}</p>
+          )}
+
+          {!loading && !error && info && (
+            <>
+              <div className="text-center py-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Monto a transferir</p>
+                <p className="text-3xl font-black text-gray-900 dark:text-gray-100">{formatCOP(info.monto)}</p>
+              </div>
+
+              <CopyField label="Numero Nequi" value={info.numero_nequi} />
+              <CopyField label="Titular de la cuenta" value={info.titular} />
+              <CopyField label="Referencia (poner en la descripcion del envio)" value={info.referencia} highlight />
+
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3">
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Pasos</p>
+                <ol className="flex flex-col gap-1.5">
+                  {pasos.map((paso, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="shrink-0 w-4 h-4 mt-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 text-[10px] font-bold flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      {paso}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-3 py-2 rounded-lg">
+                La verificacion del pago es manual y puede tardar. Tu anuncio se publica recien cuando se confirme el pago.
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-800">
+          <button onClick={onClose}
+            className="px-5 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+            Ya transferi
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function MisAnuncios() {
   const [anuncios, setAnuncios]         = useState([])
   const [establecimientos, setEstabs]   = useState([])
@@ -56,6 +184,7 @@ export default function MisAnuncios() {
   const [cupoInfo, setCupoInfo]         = useState(null)
   const [saving, setSaving]             = useState(false)
   const [deleteId, setDeleteId]         = useState(null)
+  const [pagoAnuncio, setPagoAnuncio]   = useState(null)
   const [error, setError]               = useState('')
   const [notice, setNotice]             = useState(null)
   const fileRef                         = useRef(null)
@@ -265,11 +394,16 @@ export default function MisAnuncios() {
                     </td>
                     <td className="px-4 py-3">
                       {a.es_pago ? (
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${a.pagado
-                          ? 'bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400'
-                          : 'bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400'}`}>
-                          {a.pagado ? 'Pagado' : 'Pago pendiente'}
-                        </span>
+                        a.pagado ? (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400">
+                            Pagado
+                          </span>
+                        ) : (
+                          <button onClick={() => setPagoAnuncio(a)}
+                            className="px-2 py-0.5 rounded text-xs font-medium bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors cursor-pointer">
+                            Pago pendiente
+                          </button>
+                        )
                       ) : (
                         <span className="text-xs text-gray-400">Gratis</span>
                       )}
@@ -438,6 +572,11 @@ export default function MisAnuncios() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal pago */}
+      {pagoAnuncio && (
+        <ModalPago anuncio={pagoAnuncio} onClose={() => setPagoAnuncio(null)} />
       )}
 
       {/* Confirm delete */}
