@@ -128,6 +128,12 @@ function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen,
   const [placa, setPlaca]             = useState('')
   const [servicioTexto, setServicioTexto] = useState('')
   const [yaAgendando, setYaAgendando] = useState(false)
+  const [anuncioOrigenActivo, setAnuncioOrigenActivo] = useState(anuncioOrigen ?? null)
+  const [anuncioOrigenPrevio, setAnuncioOrigenPrevio] = useState(anuncioOrigen ?? null)
+  if ((anuncioOrigen ?? null) !== anuncioOrigenPrevio) {
+    setAnuncioOrigenPrevio(anuncioOrigen ?? null)
+    setAnuncioOrigenActivo(anuncioOrigen ?? null)
+  }
 
   useEffect(() => {
     api.get(`/establecimientos/${establecimientoId}/citas-ocupadas/?mes=${mes+1}&anio=${anio}`)
@@ -143,6 +149,12 @@ function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen,
       })
       .catch(() => {})
   }, [mes, anio, establecimientoId, servicioPreseleccionado])
+
+  function handleCambioServicio(valor) {
+    setServicio(valor)
+    // El usuario tomo control manual: el anuncio de origen ya no aplica.
+    setAnuncioOrigenActivo(null)
+  }
 
   const diasEnMes  = new Date(anio, mes + 1, 0).getDate()
   const primerDia  = new Date(anio, mes, 1).getDay()
@@ -176,7 +188,7 @@ function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen,
         placa:           placa.trim().toUpperCase(),
         servicio:        servicioSel || undefined,
         servicio_texto:  servicioTexto,
-        anuncio_origen_id: anuncioOrigen || undefined,
+        anuncio_origen_id: anuncioOrigenActivo || undefined,
       })
       setExito(true)
       setDia(null); setHora(null); setPlaca(''); setServicioTexto('')
@@ -299,7 +311,7 @@ function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen,
       {servicios.length > 0 && (
         <div className="mb-3">
           <p className="text-xs text-slate-400 mb-2 font-medium">Servicio del establecimiento</p>
-          <select value={servicioSel} onChange={e => setServicio(e.target.value)}
+          <select value={servicioSel} onChange={e => handleCambioServicio(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded-lg bg-slate-700 dark:bg-gray-800 border border-slate-600 dark:border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">— Seleccionar —</option>
             {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
@@ -419,6 +431,14 @@ function SeccionAnuncios({ establecimientoId }) {
             <div className="absolute bottom-0 left-0 right-0 p-4">
               {a.titulo && <h4 className="text-white text-sm font-bold mb-1">{a.titulo}</h4>}
               {a.descripcion && <p className="text-white/70 text-xs leading-relaxed line-clamp-2">{a.descripcion}</p>}
+              {a.accion === 'agendar' && (
+                <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-blue-300">
+                  Agendar
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
+                  </svg>
+                </span>
+              )}
             </div>
           </div>
         ))}
