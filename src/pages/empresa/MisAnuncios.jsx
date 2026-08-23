@@ -12,6 +12,11 @@ const CATEGORIAS = [
   { value: 'oferta',  label: 'Oferta' },
 ]
 
+const UBICACIONES = [
+  { value: 'perfil', label: 'Perfil del establecimiento' },
+  { value: 'banner', label: 'Banner / carrusel del home' },
+]
+
 const ESTADOS = {
   pendiente: { label: 'Pendiente',  color: 'bg-yellow-50 dark:bg-yellow-950 text-yellow-600 dark:text-yellow-400' },
   aprobado:  { label: 'Aprobado',   color: 'bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400' },
@@ -22,6 +27,7 @@ const EMPTY = {
   titulo: '', descripcion: '', tipo: 'imagen',
   categoria: 'banner', descuento: '',
   texto_boton: '', url_boton: '', establecimiento: '',
+  servicio: '', ubicaciones: [],
   fecha_inicio: '', fecha_fin: '',
 }
 
@@ -31,6 +37,23 @@ function Field({ label, value, onChange, type = 'text', placeholder = '' }) {
       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{label}</label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+    </div>
+  )
+}
+
+function CheckboxUbicaciones({ value, onChange }) {
+  function toggle(v) {
+    onChange(value.includes(v) ? value.filter(x => x !== v) : [...value, v])
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {UBICACIONES.map(u => (
+        <label key={u.value} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+          <input type="checkbox" checked={value.includes(u.value)} onChange={() => toggle(u.value)}
+            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" />
+          {u.label}
+        </label>
+      ))}
     </div>
   )
 }
@@ -182,6 +205,9 @@ export default function MisAnuncios() {
   const [imagenFile, setImagenFile]     = useState(null)
   const [preview, setPreview]           = useState(null)
   const [cupoInfo, setCupoInfo]         = useState(null)
+  const [servicios, setServicios]       = useState([])
+  const [usarEnlace, setUsarEnlace]     = useState(false)
+  const [montoPreview, setMontoPreview] = useState(null)
   const [saving, setSaving]             = useState(false)
   const [deleteId, setDeleteId]         = useState(null)
   const [pagoAnuncio, setPagoAnuncio]   = useState(null)
@@ -212,6 +238,23 @@ export default function MisAnuncios() {
     } catch { setCupoInfo(null) }
   }
 
+  async function fetchServicios(estId) {
+    if (!estId) { setServicios([]); return }
+    try {
+      const res = await api.get(`/servicios/establecimiento/${estId}/`)
+      setServicios(Array.isArray(res.data) ? res.data : res.data.results ?? [])
+    } catch { setServicios([]) }
+  }
+
+  useEffect(() => {
+    if (form.ubicaciones.length === 0) { setMontoPreview(null); return }
+    let cancelado = false
+    api.get('/api/empresa/anuncios/tarifa/', { params: { ubicaciones: form.ubicaciones.join(',') } })
+      .then(res => { if (!cancelado) setMontoPreview(res.data.monto) })
+      .catch(() => { if (!cancelado) setMontoPreview(null) })
+    return () => { cancelado = true }
+  }, [form.ubicaciones])
+
   function openCreate() {
     setEditing(null)
     const first = establecimientos.length === 1 ? String(establecimientos[0].id) : ''
@@ -219,9 +262,11 @@ export default function MisAnuncios() {
     setImagenFile(null)
     setPreview(null)
     setCupoInfo(null)
+    setServicios([])
+    setUsarEnlace(false)
     setError('')
     setModal(true)
-    if (first) fetchCupo(first)
+    if (first) { fetchCupo(first); fetchServicios(first) }
   }
 
   function openEdit(a) {
@@ -235,21 +280,37 @@ export default function MisAnuncios() {
       texto_boton:     a.texto_boton    ?? '',
       url_boton:       a.url_boton      ?? '',
       establecimiento: a.establecimiento ?? '',
+      servicio:        a.servicio?.id   ?? '',
+      ubicaciones:     a.ubicaciones    ?? [],
       fecha_inicio:    a.fecha_inicio   ?? '',
       fecha_fin:       a.fecha_fin      ?? '',
     })
     setImagenFile(null)
     setPreview(a.imagen_url ?? null)
     setCupoInfo(null)
+    setUsarEnlace(!a.servicio && !!a.url_boton)
     setError('')
     setModal(true)
+    if (a.establecimiento) fetchServicios(a.establecimiento)
   }
 
   function f(k, v) { setForm(p => ({ ...p, [k]: v })) }
 
   function handleEstablecimiento(v) {
-    f('establecimiento', v)
+    setForm(p => ({ ...p, establecimiento: v, servicio: '' }))
     if (!editing) fetchCupo(v)
+    fetchServicios(v)
+  }
+
+  function handleServicio(v) {
+    setForm(p => ({ ...p, servicio: v }))
+    if (v) setUsarEnlace(false)
+  }
+
+  function toggleUsarEnlace(checked) {
+    setUsarEnlace(checked)
+    if (checked) setForm(p => ({ ...p, servicio: '' }))
+    else setForm(p => ({ ...p, texto_boton: '', url_boton: '' }))
   }
 
   function handleImagen(e) {
@@ -263,6 +324,7 @@ export default function MisAnuncios() {
     setError('')
     if (!form.establecimiento) { setError('Selecciona un establecimiento'); return }
     if (!imagenFile && !editing) { setError('La imagen es obligatoria'); return }
+    if (form.ubicaciones.length === 0) { setError('Selecciona al menos una ubicacion'); return }
 
     setSaving(true)
     try {
@@ -270,6 +332,8 @@ export default function MisAnuncios() {
       const campos = ['titulo', 'descripcion', 'tipo', 'categoria', 'descuento',
                        'texto_boton', 'url_boton', 'establecimiento', 'fecha_inicio', 'fecha_fin']
       campos.forEach(k => { if (form[k] !== '' && form[k] !== null && form[k] !== undefined) payload.append(k, form[k]) })
+      payload.append('ubicaciones', JSON.stringify(form.ubicaciones))
+      if (form.servicio) payload.append('servicio_id', form.servicio)
       if (imagenFile) payload.append('imagen', imagenFile)
 
       let res
@@ -351,9 +415,11 @@ export default function MisAnuncios() {
                   <th className="px-4 py-3 text-left">Titulo</th>
                   <th className="px-4 py-3 text-left">Tipo</th>
                   <th className="px-4 py-3 text-left">Establecimiento</th>
+                  <th className="px-4 py-3 text-left">Ubicaciones</th>
                   <th className="px-4 py-3 text-left">Vigencia</th>
                   <th className="px-4 py-3 text-left">Estado</th>
                   <th className="px-4 py-3 text-left">Pago</th>
+                  <th className="px-4 py-3 text-left">Citas</th>
                   <th className="px-4 py-3 text-left">Acciones</th>
                 </tr>
               </thead>
@@ -379,6 +445,17 @@ export default function MisAnuncios() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{a.establecimiento_nombre ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(a.ubicaciones ?? []).length === 0
+                          ? <span className="text-gray-400">—</span>
+                          : a.ubicaciones.map(u => (
+                              <span key={u} className="px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                                {UBICACIONES.find(x => x.value === u)?.label ?? u}
+                              </span>
+                            ))}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
                       {a.fecha_inicio || a.fecha_fin
                         ? `${a.fecha_inicio ?? '∞'} → ${a.fecha_fin ?? '∞'}`
@@ -407,6 +484,9 @@ export default function MisAnuncios() {
                       ) : (
                         <span className="text-xs text-gray-400">Gratis</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                      {a.citas_generadas_count ?? 0}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -522,14 +602,6 @@ export default function MisAnuncios() {
                 </>
               )}
 
-              {/* Boton — solo si es imagen_boton */}
-              {form.tipo === 'imagen_boton' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Texto del boton" value={form.texto_boton} onChange={v => f('texto_boton', v)} placeholder="Ver más" />
-                  <Field label="URL del boton" value={form.url_boton} onChange={v => f('url_boton', v)} placeholder="/establecimientos/5" />
-                </div>
-              )}
-
               {/* Establecimiento */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Establecimiento *</label>
@@ -547,6 +619,48 @@ export default function MisAnuncios() {
                   : 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400'}`}>
                   Te quedan {cupoInfo.gratis_restantes} anuncio{cupoInfo.gratis_restantes !== 1 ? 's' : ''} gratis de {cupoInfo.cupo_gratis}.
                   {cupoInfo.proximo_requiere_pago && ' El siguiente anuncio que publiques sera de pago.'}
+                </div>
+              )}
+
+              {/* Ubicaciones */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Donde se muestra *</label>
+                <CheckboxUbicaciones value={form.ubicaciones} onChange={v => f('ubicaciones', v)} />
+                {montoPreview !== null && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Si esta combinacion requiere pago, el monto es de <span className="font-semibold text-gray-700 dark:text-gray-300">{formatCOP(montoPreview)}</span>.
+                  </p>
+                )}
+              </div>
+
+              {/* Servicio asociado — permite agendar directo desde el anuncio */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Servicio asociado (opcional)</label>
+                <select value={form.servicio} onChange={e => handleServicio(e.target.value)}
+                  disabled={!form.establecimiento}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+                  <option value="">Sin servicio (solo visual)</option>
+                  {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Si eliges un servicio, el anuncio se puede tocar para agendarlo directo (el usuario solo elige fecha y hora).
+                </p>
+              </div>
+
+              {/* Enlace externo — alternativa minoritaria al agendamiento */}
+              {!form.servicio && (
+                <div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <input type="checkbox" checked={usarEnlace} onChange={e => toggleUsarEnlace(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500" />
+                    Usar un enlace externo en vez de agendamiento
+                  </label>
+                  {usarEnlace && (
+                    <div className="grid grid-cols-2 gap-4 mt-3">
+                      <Field label="Texto del boton" value={form.texto_boton} onChange={v => f('texto_boton', v)} placeholder="Ver más" />
+                      <Field label="URL del boton" value={form.url_boton} onChange={v => f('url_boton', v)} placeholder="https://..." />
+                    </div>
+                  )}
                 </div>
               )}
 

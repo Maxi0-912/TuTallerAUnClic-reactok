@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -112,7 +112,7 @@ function Galeria({ fotos, fotoPortada }) {
 
 // ─── CALENDARIO ──────────────────────────────────────────────────────────────
 
-function Calendario({ establecimientoId, onAgendar }) {
+function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen, onAgendar }) {
   const { user }  = useAuth()
   const hoy       = new Date()
   const [mes, setMes]         = useState(hoy.getMonth())
@@ -134,9 +134,15 @@ function Calendario({ establecimientoId, onAgendar }) {
       .then(res => setOcupadas(res.data))
       .catch(() => {})
     api.get(`/servicios/establecimiento/${establecimientoId}/`)
-      .then(res => setServicios(Array.isArray(res.data) ? res.data : res.data.results ?? []))
+      .then(res => {
+        const lista = Array.isArray(res.data) ? res.data : res.data.results ?? []
+        setServicios(lista)
+        if (servicioPreseleccionado && lista.some(s => String(s.id) === String(servicioPreseleccionado))) {
+          setServicio(String(servicioPreseleccionado))
+        }
+      })
       .catch(() => {})
-  }, [mes, anio, establecimientoId])
+  }, [mes, anio, establecimientoId, servicioPreseleccionado])
 
   const diasEnMes  = new Date(anio, mes + 1, 0).getDate()
   const primerDia  = new Date(anio, mes, 1).getDay()
@@ -163,15 +169,15 @@ function Calendario({ establecimientoId, onAgendar }) {
     setAgendando(true); setError('')
     try {
       const fechaStr = `${anio}-${String(mes+1).padStart(2,'0')}-${String(diaSeleccionado).padStart(2,'0')}`
-      const res = await api.post('/citas/crear/', {
+      await api.post('/citas/crear/', {
         establecimiento: establecimientoId,
         fecha:           fechaStr,
         hora:            horaSeleccionada,
         placa:           placa.trim().toUpperCase(),
         servicio:        servicioSel || undefined,
         servicio_texto:  servicioTexto,
+        anuncio_origen_id: anuncioOrigen || undefined,
       })
-        console.log('Respuesta:', res.data) // agrega esto
       setExito(true)
       setDia(null); setHora(null); setPlaca(''); setServicioTexto('')
       if (onAgendar) onAgendar()
@@ -340,8 +346,31 @@ function Calendario({ establecimientoId, onAgendar }) {
 
 // ─── ANUNCIOS DEL ESTABLECIMIENTO ─────────────────────────────────────────────
 
+function AnuncioAccionIcon({ accion }) {
+  if (accion === 'agendar') {
+    return (
+      <span className="absolute top-2.5 left-2.5 w-6 h-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+        </svg>
+      </span>
+    )
+  }
+  if (accion === 'enlace') {
+    return (
+      <span className="absolute top-2.5 left-2.5 w-6 h-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+        </svg>
+      </span>
+    )
+  }
+  return null
+}
+
 function SeccionAnuncios({ establecimientoId }) {
   const [anuncios, setAnuncios] = useState([])
+  const navigate = useNavigate()
 
   useEffect(() => {
     api.get(`/anuncios/?establecimiento=${establecimientoId}`)
@@ -354,35 +383,45 @@ function SeccionAnuncios({ establecimientoId }) {
 
   if (anuncios.length === 0) return null
 
+  function handleClick(a) {
+    if (a.accion === 'agendar' && a.servicio) {
+      navigate(`/establecimientos/${establecimientoId}?servicio=${a.servicio.id}&anuncio=${a.id}`)
+      document.getElementById('calendario-agendar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else if (a.accion === 'enlace' && a.url_boton) {
+      window.open(a.url_boton, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   return (
     <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5">
       <h3 className="text-base font-bold text-white mb-4">Anuncios y promociones</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {anuncios.map(a => {
-          const contenido = (
-            <div className="group relative rounded-xl overflow-hidden h-40 cursor-pointer">
-              {a.imagen_url ? (
-                <img src={a.imagen_url} alt={a.titulo}
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-              ) : (
-                <div className="absolute inset-0 bg-slate-700 dark:bg-gray-800" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-              {a.descuento && (
-                <span className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-600 text-white shadow-lg">
-                  {a.descuento}
-                </span>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                {a.titulo && <h4 className="text-white text-sm font-bold mb-1">{a.titulo}</h4>}
-                {a.descripcion && <p className="text-white/70 text-xs leading-relaxed line-clamp-2">{a.descripcion}</p>}
-              </div>
+        {anuncios.map(a => (
+          <div key={a.id}
+            onClick={() => handleClick(a)}
+            className={`group relative rounded-xl overflow-hidden h-40 transition-transform ${
+              a.accion ? 'cursor-pointer hover:scale-[1.02]' : ''
+            }`}
+          >
+            {a.imagen_url ? (
+              <img src={a.imagen_url} alt={a.titulo}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            ) : (
+              <div className="absolute inset-0 bg-slate-700 dark:bg-gray-800" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            <AnuncioAccionIcon accion={a.accion} />
+            {a.descuento && (
+              <span className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-600 text-white shadow-lg">
+                {a.descuento}
+              </span>
+            )}
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              {a.titulo && <h4 className="text-white text-sm font-bold mb-1">{a.titulo}</h4>}
+              {a.descripcion && <p className="text-white/70 text-xs leading-relaxed line-clamp-2">{a.descripcion}</p>}
             </div>
-          )
-          return a.url_boton
-            ? <Link key={a.id} to={a.url_boton}>{contenido}</Link>
-            : <div key={a.id}>{contenido}</div>
-        })}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -468,6 +507,9 @@ function Resenas({ establecimientoId }) {
 export default function DetalleEstablecimiento() {
   const { id }  = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const servicioPreseleccionado = searchParams.get('servicio')
+  const anuncioOrigen           = searchParams.get('anuncio')
   const [estab, setEstab]   = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -645,8 +687,11 @@ export default function DetalleEstablecimiento() {
 
           {/* Columna lateral — Calendario */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24">
-              <Calendario establecimientoId={id} />
+            <div id="calendario-agendar" className="sticky top-24">
+              <Calendario establecimientoId={id}
+                servicioPreseleccionado={servicioPreseleccionado}
+                anuncioOrigen={anuncioOrigen}
+              />
             </div>
           </div>
         </div>

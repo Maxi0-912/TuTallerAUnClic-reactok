@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -113,11 +113,34 @@ function HeroSection({ stats }) {
 
 // ─── CARRUSEL ─────────────────────────────────────────────────────────────────
 
+// Mantener en sync con _accion_de_anuncio() del backend.
+function irPorAccion(navigate, a) {
+  if (a.accion === 'agendar' && a.servicio) {
+    navigate(`/establecimientos/${a.establecimiento}?servicio=${a.servicio.id}&anuncio=${a.id}`)
+  } else if (a.accion === 'enlace' && a.url_boton) {
+    window.open(a.url_boton, '_blank', 'noopener,noreferrer')
+  }
+}
+
+function EtiquetaAccion({ accion }) {
+  if (!accion) return null
+  return (
+    <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 group-hover:bg-blue-500 text-white text-sm font-semibold transition-colors shadow-lg">
+      {accion === 'agendar' ? 'Agendar ahora' : 'Ver más'}
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+      </svg>
+    </span>
+  )
+}
+
 function CarruselAnuncios({ anuncios }) {
   const [current, setCurrent]     = useState(0)
   const [paused, setPaused]       = useState(false)
   const [dragging, setDragging]   = useState(false)
   const [dragStart, setDragStart] = useState(0)
+  const draggedRef = useRef(false)
+  const navigate = useNavigate()
   const total = anuncios.length
 
   const next = useCallback(() => setCurrent(i => (i + 1) % total), [total])
@@ -133,6 +156,7 @@ function CarruselAnuncios({ anuncios }) {
   function onTouchEnd(e) {
     if (!dragging) return
     const diff = dragStart - e.changedTouches[0].clientX
+    draggedRef.current = Math.abs(diff) > 10
     if (Math.abs(diff) > 50) diff > 0 ? next() : prev()
     setDragging(false)
   }
@@ -140,8 +164,14 @@ function CarruselAnuncios({ anuncios }) {
   function onMouseUp(e) {
     if (!dragging) return
     const diff = dragStart - e.clientX
+    draggedRef.current = Math.abs(diff) > 10
     if (Math.abs(diff) > 50) diff > 0 ? next() : prev()
     setDragging(false)
+  }
+
+  function handleClick(a) {
+    if (draggedRef.current) { draggedRef.current = false; return }
+    irPorAccion(navigate, a)
   }
 
   if (total === 0) return null
@@ -160,21 +190,19 @@ function CarruselAnuncios({ anuncios }) {
           onMouseDown={onMouseDown}   onMouseUp={onMouseUp}
         >
           {anuncios.map((a, i) => (
-            <div key={a.id} className="absolute inset-0 transition-opacity duration-700"
-              style={{ opacity: i === current ? 1 : 0, pointerEvents: i === current ? 'auto' : 'none' }}>
+            <div key={a.id}
+              className={`group absolute inset-0 transition-opacity duration-700 ${a.accion ? 'cursor-pointer' : ''}`}
+              style={{ opacity: i === current ? 1 : 0, pointerEvents: i === current ? 'auto' : 'none' }}
+              onClick={() => handleClick(a)}
+              role={a.accion ? 'button' : undefined}
+              tabIndex={a.accion ? 0 : undefined}
+            >
               <img src={a.imagen_url} alt={a.titulo} className="w-full h-full object-cover" draggable={false} />
               <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent flex items-center">
                 <div className="px-10 max-w-lg">
                   {a.titulo && <h3 className="text-white text-2xl sm:text-3xl font-black mb-2 drop-shadow-lg">{a.titulo}</h3>}
                   {a.descripcion && <p className="text-white/80 text-sm sm:text-base mb-4 leading-relaxed">{a.descripcion}</p>}
-                  <Link to={a.establecimiento ? `/establecimientos/${a.establecimiento}` : '/establecimientos'}
-                    onClick={e => e.stopPropagation()}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors shadow-lg">
-                    Ver más
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                    </svg>
-                  </Link>
+                  <EtiquetaAccion accion={a.accion} />
                 </div>
               </div>
             </div>
@@ -273,8 +301,30 @@ function SeccionCategories() {
 // ─── OFERTAS ESPECIALES ───────────────────────────────────────────────────────
 
 function CardOferta({ oferta }) {
-  const contenido = (
-    <div className="group relative rounded-2xl overflow-hidden shadow-xl h-64 cursor-pointer">
+  const navigate = useNavigate()
+
+  return (
+    <div
+      className={`group relative rounded-2xl overflow-hidden shadow-xl h-64 transition-transform ${
+        oferta.accion ? 'cursor-pointer hover:scale-[1.02]' : ''
+      }`}
+      onClick={() => irPorAccion(navigate, oferta)}
+      role={oferta.accion ? 'button' : undefined}
+      tabIndex={oferta.accion ? 0 : undefined}
+    >
+      {oferta.accion && (
+        <span className="absolute top-3 left-3 z-10 w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+          {oferta.accion === 'agendar' ? (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+          )}
+        </span>
+      )}
       {oferta.imagen_url ? (
         <img src={oferta.imagen_url} alt={oferta.titulo}
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -293,10 +343,6 @@ function CardOferta({ oferta }) {
       </div>
     </div>
   )
-
-  return oferta.establecimiento
-    ? <Link to={`/establecimientos/${oferta.establecimiento}`}>{contenido}</Link>
-    : contenido
 }
 
 function SeccionOfertas({ ofertas }) {
