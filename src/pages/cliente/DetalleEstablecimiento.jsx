@@ -338,6 +338,56 @@ function Calendario({ establecimientoId, onAgendar }) {
   )
 }
 
+// ─── ANUNCIOS DEL ESTABLECIMIENTO ─────────────────────────────────────────────
+
+function SeccionAnuncios({ establecimientoId }) {
+  const [anuncios, setAnuncios] = useState([])
+
+  useEffect(() => {
+    api.get(`/anuncios/?establecimiento=${establecimientoId}`)
+      .then(res => {
+        const data = Array.isArray(res.data) ? res.data : res.data.results ?? []
+        setAnuncios(data.filter(a => String(a.establecimiento) === String(establecimientoId)))
+      })
+      .catch(() => setAnuncios([]))
+  }, [establecimientoId])
+
+  if (anuncios.length === 0) return null
+
+  return (
+    <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5">
+      <h3 className="text-base font-bold text-white mb-4">Anuncios y promociones</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {anuncios.map(a => {
+          const contenido = (
+            <div className="group relative rounded-xl overflow-hidden h-40 cursor-pointer">
+              {a.imagen_url ? (
+                <img src={a.imagen_url} alt={a.titulo}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+              ) : (
+                <div className="absolute inset-0 bg-slate-700 dark:bg-gray-800" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+              {a.descuento && (
+                <span className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-600 text-white shadow-lg">
+                  {a.descuento}
+                </span>
+              )}
+              <div className="absolute bottom-0 left-0 right-0 p-4">
+                {a.titulo && <h4 className="text-white text-sm font-bold mb-1">{a.titulo}</h4>}
+                {a.descripcion && <p className="text-white/70 text-xs leading-relaxed line-clamp-2">{a.descripcion}</p>}
+              </div>
+            </div>
+          )
+          return a.url_boton
+            ? <Link key={a.id} to={a.url_boton}>{contenido}</Link>
+            : <div key={a.id}>{contenido}</div>
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── RESEÑAS ─────────────────────────────────────────────────────────────────
 
 function Resenas({ establecimientoId }) {
@@ -565,6 +615,9 @@ export default function DetalleEstablecimiento() {
                 </div>
               </div>
             </div>
+
+            {/* Anuncios */}
+            <SeccionAnuncios establecimientoId={id} />
 
             {/* Mapa */}
             {estab.latitud && estab.longitud && (

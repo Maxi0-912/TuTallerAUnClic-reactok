@@ -3,6 +3,7 @@ import EmpresaLayout        from '../layouts/EmpresaLayout'
 import ProtectedRoute       from './ProtectedRoute'
 import Dashboard            from '../pages/empresa/Dashboard'
 import MisEstablecimientos  from '../pages/empresa/MisEstablecimientos'
+import MisAnuncios          from '../pages/empresa/MisAnuncios'
 import Citas                from '../pages/empresa/Citas'
 import Servicios            from '../pages/empresa/Servicios'
 import Calificaciones       from '../pages/empresa/Calificaciones'
@@ -22,6 +23,7 @@ export default function EmpresaRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard"          element={<Dashboard />} />
         <Route path="establecimientos"   element={<MisEstablecimientos />} />
+        <Route path="anuncios"           element={<MisAnuncios />} />
         <Route path="citas"              element={<Citas />} />
         <Route path="servicios"          element={<Servicios />} />
         <Route path="calificaciones"     element={<Calificaciones />} />
