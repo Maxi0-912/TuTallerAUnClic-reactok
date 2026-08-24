@@ -29,6 +29,19 @@ function Estrellas({ valor, size = 'sm' }) {
   )
 }
 
+// Cloudinary sirve el original (a veces varios MB) si no se pide una
+// transformacion explicita. f_auto/q_auto eligen formato y calidad segun el
+// navegador, w_<ancho> evita bajar mas pixeles que los que el contenedor va
+// a mostrar.
+function cloudinaryOptimizada(url, ancho) {
+  if (!url || !url.includes('res.cloudinary.com') || !url.includes('/upload/')) return url
+  return url.replace('/upload/', `/upload/f_auto,q_auto,w_${ancho}/`)
+}
+
+function Skeleton({ className = '', style }) {
+  return <div className={`animate-pulse bg-slate-700/60 dark:bg-gray-800 rounded ${className}`} style={style} />
+}
+
 function estaAbierto(apertura, cierre) {
   if (!apertura || !cierre) return null
   const ahora = new Date()
@@ -64,9 +77,9 @@ function Galeria({ fotos, fotoPortada }) {
             className={`relative cursor-pointer overflow-hidden bg-slate-800 group
               ${i === 0 && todas.length > 2 ? 'row-span-2 col-span-1' : ''}
             `}
-            style={{ height: i === 0 && todas.length > 2 ? '400px' : '400px' }}
+            style={{ height: '400px' }}
           >
-            <img src={url} alt={`foto ${i+1}`}
+            <img src={cloudinaryOptimizada(url, 800)} alt={`foto ${i+1}`} width={800} height={400}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
             {i === 4 && todas.length > 5 && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -87,7 +100,7 @@ function Galeria({ fotos, fotoPortada }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
-          <img src={todas[idx]} alt="" className="max-h-[85vh] max-w-[90vw] object-contain rounded-xl"
+          <img src={cloudinaryOptimizada(todas[idx], 1200)} alt="" className="max-h-[85vh] max-w-[90vw] object-contain rounded-xl"
             onClick={e => e.stopPropagation()} />
           <button onClick={e => { e.stopPropagation(); setIdx(i => (i + 1) % todas.length) }}
             className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white">
@@ -402,8 +415,20 @@ function AnuncioAccionIcon({ accion }) {
   return null
 }
 
-function SeccionAnuncios({ establecimientoId, anuncios }) {
+function SeccionAnuncios({ establecimientoId, anuncios, loading }) {
   const navigate = useNavigate()
+
+  if (loading) {
+    return (
+      <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5">
+        <Skeleton className="h-5 w-40 mb-4" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+        </div>
+      </div>
+    )
+  }
 
   if (anuncios.length === 0) return null
 
@@ -428,7 +453,7 @@ function SeccionAnuncios({ establecimientoId, anuncios }) {
             }`}
           >
             {a.imagen_url ? (
-              <img src={a.imagen_url} alt={a.titulo}
+              <img src={cloudinaryOptimizada(a.imagen_url, 400)} alt={a.titulo} width={400} height={160}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
             ) : (
               <div className="absolute inset-0 bg-slate-700 dark:bg-gray-800" />
@@ -471,7 +496,21 @@ function Resenas({ establecimientoId }) {
       .catch(() => setLoading(false))
   }, [establecimientoId])
 
-  if (loading) return <div className="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+  if (loading) return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-4 pb-4 border-b border-slate-700 dark:border-gray-700">
+        <Skeleton className="w-14 h-14 shrink-0" />
+        <Skeleton className="flex-1 h-8" />
+      </div>
+      <div className="flex gap-3">
+        <Skeleton className="w-9 h-9 rounded-full shrink-0" />
+        <div className="flex-1">
+          <Skeleton className="h-4 w-32 mb-2" />
+          <Skeleton className="h-3 w-full" />
+        </div>
+      </div>
+    </div>
+  )
 
   if (resenas.length === 0) return (
     <p className="text-slate-400 text-sm">Aun no hay reseñas para este establecimiento.</p>
@@ -545,7 +584,11 @@ export default function DetalleEstablecimiento() {
   const [estab, setEstab]   = useState(null)
   const [loading, setLoading] = useState(true)
   const [anuncios, setAnuncios] = useState([])
+  const [anunciosLoading, setAnunciosLoading] = useState(true)
 
+  // Estas dos llamadas comparten el mismo "id" de entrada, no dependen una de
+  // la otra, asi que se disparan juntas en el primer render en vez de esperar
+  // a que termine el fetch del establecimiento.
   useEffect(() => {
     api.get(`/establecimientos/${id}/`)
       .then(res => { setEstab(res.data); setLoading(false) })
@@ -559,17 +602,12 @@ export default function DetalleEstablecimiento() {
         setAnuncios(data.filter(a => String(a.establecimiento) === String(id)))
       })
       .catch(() => setAnuncios([]))
+      .finally(() => setAnunciosLoading(false))
   }, [id])
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900">
-      <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-    </div>
-  )
+  if (!loading && !estab) return null
 
-  if (!estab) return null
-
-  const abierto = estaAbierto(estab.hora_apertura, estab.hora_cierre)
+  const abierto = estab ? estaAbierto(estab.hora_apertura, estab.hora_cierre) : null
 
   return (
     <div className="min-h-screen pt-20 pb-16">
@@ -581,56 +619,75 @@ export default function DetalleEstablecimiento() {
           <span>/</span>
           <Link to="/establecimientos" className="hover:text-white transition-colors">Establecimientos</Link>
           <span>/</span>
-          <span className="text-white">{estab.nombre}</span>
+          {estab ? <span className="text-white">{estab.nombre}</span> : <Skeleton className="h-3 w-24 inline-block align-middle" />}
         </div>
 
         {/* Header info */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-600/20 border border-blue-500/30 text-blue-400">
-                {estab.tipo_nombre}
-              </span>
-              {abierto !== null && (
-                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  abierto ? 'bg-green-500/20 border border-green-500/30 text-green-400'
-                           : 'bg-red-500/20 border border-red-500/30 text-red-400'
-                }`}>
-                  {abierto ? '● Abierto ahora' : '● Cerrado'}
+        {estab ? (
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-600/20 border border-blue-500/30 text-blue-400">
+                  {estab.tipo_nombre}
                 </span>
+                {abierto !== null && (
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    abierto ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                             : 'bg-red-500/20 border border-red-500/30 text-red-400'
+                  }`}>
+                    {abierto ? '● Abierto ahora' : '● Cerrado'}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-3xl font-black text-white">{estab.nombre}</h1>
+              <p className="text-slate-400 text-sm mt-1 flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                </svg>
+                {estab.direccion}
+              </p>
+              {estab.calificacion_promedio && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Estrellas valor={estab.calificacion_promedio} />
+                  <span className="text-sm text-white font-semibold">{estab.calificacion_promedio}</span>
+                </div>
               )}
             </div>
-            <h1 className="text-3xl font-black text-white">{estab.nombre}</h1>
-            <p className="text-slate-400 text-sm mt-1 flex items-center gap-1.5">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-              </svg>
-              {estab.direccion}
-            </p>
-            {estab.calificacion_promedio && (
-              <div className="flex items-center gap-2 mt-2">
-                <Estrellas valor={estab.calificacion_promedio} />
-                <span className="text-sm text-white font-semibold">{estab.calificacion_promedio}</span>
-              </div>
-            )}
-          </div>
 
-          <div className="flex gap-2">
-            {estab.telefono && (
-              <a href={`tel:${estab.telefono}`}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 dark:bg-gray-800 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 transition-colors text-sm">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                </svg>
-                {estab.telefono}
-              </a>
-            )}
+            <div className="flex gap-2">
+              {estab.telefono && (
+                <a href={`tel:${estab.telefono}`}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 dark:bg-gray-800 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 transition-colors text-sm">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                  </svg>
+                  {estab.telefono}
+                </a>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-6 w-28" />
+            </div>
+            <Skeleton className="h-9 w-64 mb-2" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        )}
 
         {/* Galería */}
         <div className="mb-8">
-          <Galeria fotos={estab.fotos_galeria ?? []} fotoPortada={estab.foto_url} />
+          {estab ? (
+            <Galeria fotos={estab.fotos_galeria ?? []} fotoPortada={estab.foto_url} />
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 rounded-2xl overflow-hidden">
+              <Skeleton className="row-span-2 col-span-1" style={{ height: '400px' }} />
+              <Skeleton style={{ height: '400px' }} />
+              <Skeleton style={{ height: '400px' }} />
+            </div>
+          )}
         </div>
 
         {/* Layout 2 columnas */}
@@ -640,7 +697,7 @@ export default function DetalleEstablecimiento() {
           <div className="lg:col-span-2 flex flex-col gap-6">
 
             {/* Descripcion */}
-            {estab.descripcion && (
+            {estab?.descripcion && (
               <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5">
                 <h3 className="text-base font-bold text-white mb-3">Sobre el establecimiento</h3>
                 <p className="text-slate-300 text-sm leading-relaxed">{estab.descripcion}</p>
@@ -650,73 +707,94 @@ export default function DetalleEstablecimiento() {
             {/* Horarios e info */}
             <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5">
               <h3 className="text-base font-bold text-white mb-4">Informacion</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+              {estab ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Horario</p>
+                      <p className="text-sm text-white font-medium">
+                        {estab.hora_apertura?.slice(0,5)} – {estab.hora_cierre?.slice(0,5)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-400 mb-0.5">Horario</p>
-                    <p className="text-sm text-white font-medium">
-                      {estab.hora_apertura?.slice(0,5)} – {estab.hora_cierre?.slice(0,5)}
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Telefono</p>
+                      <p className="text-sm text-white font-medium">{estab.telefono || '—'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Direccion</p>
+                      <p className="text-sm text-white font-medium">{estab.direccion}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+                      <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Tipo</p>
+                      <p className="text-sm text-white font-medium">{estab.tipo_nombre}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 mb-0.5">Telefono</p>
-                    <p className="text-sm text-white font-medium">{estab.telefono || '—'}</p>
-                  </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className="flex items-start gap-3">
+                      <Skeleton className="w-8 h-8 shrink-0" />
+                      <div className="flex-1">
+                        <Skeleton className="h-3 w-14 mb-2" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 mb-0.5">Direccion</p>
-                    <p className="text-sm text-white font-medium">{estab.direccion}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 mb-0.5">Tipo</p>
-                    <p className="text-sm text-white font-medium">{estab.tipo_nombre}</p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Anuncios */}
-            <SeccionAnuncios establecimientoId={id} anuncios={anuncios} />
+            <SeccionAnuncios establecimientoId={id} anuncios={anuncios} loading={anunciosLoading} />
 
             {/* Mapa */}
-            {estab.latitud && estab.longitud && (
-              <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5">
-                <h3 className="text-base font-bold text-white mb-4">Ubicacion</h3>
-                <div className="rounded-xl overflow-hidden" style={{ height: '280px' }}>
-                  <MapContainer
-                    center={[parseFloat(estab.latitud), parseFloat(estab.longitud)]}
-                    zoom={16} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                    <Marker position={[parseFloat(estab.latitud), parseFloat(estab.longitud)]}>
-                      <Popup>{estab.nombre}</Popup>
-                    </Marker>
-                  </MapContainer>
+            {estab ? (
+              estab.latitud && estab.longitud && (
+                <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5">
+                  <h3 className="text-base font-bold text-white mb-4">Ubicacion</h3>
+                  <div className="rounded-xl overflow-hidden" style={{ height: '280px' }}>
+                    <MapContainer
+                      center={[parseFloat(estab.latitud), parseFloat(estab.longitud)]}
+                      zoom={16} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                      <Marker position={[parseFloat(estab.latitud), parseFloat(estab.longitud)]}>
+                        <Popup>{estab.nombre}</Popup>
+                      </Marker>
+                    </MapContainer>
+                  </div>
                 </div>
+              )
+            ) : (
+              <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5">
+                <Skeleton className="h-5 w-24 mb-4" />
+                <Skeleton style={{ height: '280px' }} />
               </div>
             )}
 
