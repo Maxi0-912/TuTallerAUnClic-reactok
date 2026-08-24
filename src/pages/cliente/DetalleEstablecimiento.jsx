@@ -112,7 +112,7 @@ function Galeria({ fotos, fotoPortada }) {
 
 // ─── CALENDARIO ──────────────────────────────────────────────────────────────
 
-function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen, onAgendar }) {
+function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen, anuncios = [], onAgendar }) {
   const { user }  = useAuth()
   const hoy       = new Date()
   const [mes, setMes]         = useState(hoy.getMonth())
@@ -124,6 +124,7 @@ function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen,
   const [servicioSel, setServicio] = useState('')
   const [agendando, setAgendando]  = useState(false)
   const [exito, setExito]          = useState(false)
+  const [anuncioConfirmado, setAnuncioConfirmado] = useState(null)
   const [error, setError]          = useState('')
   const [placa, setPlaca]             = useState('')
   const [servicioTexto, setServicioTexto] = useState('')
@@ -149,6 +150,8 @@ function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen,
       })
       .catch(() => {})
   }, [mes, anio, establecimientoId, servicioPreseleccionado])
+
+  const anuncioActivo = anuncios.find(a => String(a.id) === String(anuncioOrigenActivo)) ?? null
 
   function handleCambioServicio(valor) {
     setServicio(valor)
@@ -181,7 +184,7 @@ function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen,
     setAgendando(true); setError('')
     try {
       const fechaStr = `${anio}-${String(mes+1).padStart(2,'0')}-${String(diaSeleccionado).padStart(2,'0')}`
-      await api.post('/citas/crear/', {
+      const res = await api.post('/citas/crear/', {
         establecimiento: establecimientoId,
         fecha:           fechaStr,
         hora:            horaSeleccionada,
@@ -191,6 +194,7 @@ function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen,
         anuncio_origen_id: anuncioOrigenActivo || undefined,
       })
       setExito(true)
+      setAnuncioConfirmado(res.data?.anuncio_origen_detalle ?? null)
       setDia(null); setHora(null); setPlaca(''); setServicioTexto('')
       if (onAgendar) onAgendar()
     } catch (err) {
@@ -206,12 +210,30 @@ function Calendario({ establecimientoId, servicioPreseleccionado, anuncioOrigen,
     <div className="bg-slate-800 dark:bg-gray-900 rounded-2xl border border-slate-700 dark:border-gray-700 p-5">
       <h3 className="text-base font-bold text-white mb-4">Agendar cita</h3>
 
+      {anuncioActivo && !exito && (
+        <div className="mb-4 px-4 py-3 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-300 text-sm flex items-start gap-2">
+          <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+          </svg>
+          <span>
+            Agendando desde: <span className="font-semibold">{anuncioActivo.titulo}</span>
+            {anuncioActivo.descuento && <span className="font-semibold"> — {anuncioActivo.descuento}</span>}
+          </span>
+        </div>
+      )}
+
       {exito && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Cita agendada exitosamente
+          <span>
+            Cita agendada exitosamente
+            {anuncioConfirmado && (
+              <> — promo aplicada: <span className="font-semibold">{anuncioConfirmado.titulo}</span>
+              {anuncioConfirmado.descuento && ` (${anuncioConfirmado.descuento})`}</>
+            )}
+          </span>
         </div>
       )}
 
@@ -380,18 +402,8 @@ function AnuncioAccionIcon({ accion }) {
   return null
 }
 
-function SeccionAnuncios({ establecimientoId }) {
-  const [anuncios, setAnuncios] = useState([])
+function SeccionAnuncios({ establecimientoId, anuncios }) {
   const navigate = useNavigate()
-
-  useEffect(() => {
-    api.get(`/anuncios/?establecimiento=${establecimientoId}`)
-      .then(res => {
-        const data = Array.isArray(res.data) ? res.data : res.data.results ?? []
-        setAnuncios(data.filter(a => String(a.establecimiento) === String(establecimientoId)))
-      })
-      .catch(() => setAnuncios([]))
-  }, [establecimientoId])
 
   if (anuncios.length === 0) return null
 
@@ -532,11 +544,21 @@ export default function DetalleEstablecimiento() {
   const anuncioOrigen           = searchParams.get('anuncio')
   const [estab, setEstab]   = useState(null)
   const [loading, setLoading] = useState(true)
+  const [anuncios, setAnuncios] = useState([])
 
   useEffect(() => {
     api.get(`/establecimientos/${id}/`)
       .then(res => { setEstab(res.data); setLoading(false) })
       .catch(() => { setLoading(false); navigate('/establecimientos') })
+  }, [id])
+
+  useEffect(() => {
+    api.get(`/anuncios/?establecimiento=${id}`)
+      .then(res => {
+        const data = Array.isArray(res.data) ? res.data : res.data.results ?? []
+        setAnuncios(data.filter(a => String(a.establecimiento) === String(id)))
+      })
+      .catch(() => setAnuncios([]))
   }, [id])
 
   if (loading) return (
@@ -679,7 +701,7 @@ export default function DetalleEstablecimiento() {
             </div>
 
             {/* Anuncios */}
-            <SeccionAnuncios establecimientoId={id} />
+            <SeccionAnuncios establecimientoId={id} anuncios={anuncios} />
 
             {/* Mapa */}
             {estab.latitud && estab.longitud && (
@@ -711,6 +733,7 @@ export default function DetalleEstablecimiento() {
               <Calendario establecimientoId={id}
                 servicioPreseleccionado={servicioPreseleccionado}
                 anuncioOrigen={anuncioOrigen}
+                anuncios={anuncios}
               />
             </div>
           </div>
