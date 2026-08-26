@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { Link } from 'react-router-dom'
 import GoogleLoginButton from '../components/GoogleLoginButton'
+import SelectorRolGoogle from '../components/SelectorRolGoogle'
 import logo from '../assets/logo_solo.png'
 
 function redirigirPorRol(navigate, rolNombre) {
@@ -24,6 +25,8 @@ export default function Login() {
   const [form, setForm]     = useState({ username: '', password: '' })
   const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
+  const [pendienteGoogle, setPendienteGoogle] = useState(null)
+  const [creandoCuenta, setCreandoCuenta]     = useState(false)
 
   async function handleSubmit() {
     if (!form.username || !form.password) {
@@ -44,13 +47,31 @@ export default function Login() {
     }
   }
 
-  async function handleGoogleCredential(idToken) {
+  async function handleGoogleCredential(credential) {
     setError('')
     try {
-      const user = await loginWithGoogle(idToken)
-      redirigirPorRol(navigate, user.rol_nombre?.toLowerCase())
+      const resultado = await loginWithGoogle(credential)
+      if (resultado?.requiereRol) {
+        setPendienteGoogle({ credential, ...resultado })
+        return
+      }
+      redirigirPorRol(navigate, resultado.rol_nombre?.toLowerCase())
     } catch (err) {
       setError(err.response?.data?.error ?? 'No se pudo iniciar sesion con Google')
+    }
+  }
+
+  async function handleConfirmarRol(rol) {
+    if (!rol || !pendienteGoogle) return
+    setCreandoCuenta(true)
+    setError('')
+    try {
+      const user = await loginWithGoogle(pendienteGoogle.credential, rol)
+      setPendienteGoogle(null)
+      redirigirPorRol(navigate, user.rol_nombre?.toLowerCase())
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'No se pudo crear la cuenta')
+      setCreandoCuenta(false)
     }
   }
 
@@ -163,6 +184,15 @@ export default function Login() {
           Tu Taller a un Clic &copy; 2025
         </p>
       </div>
+
+      {pendienteGoogle && (
+        <SelectorRolGoogle
+          datos={pendienteGoogle}
+          loading={creandoCuenta}
+          onConfirmar={handleConfirmarRol}
+          onCancelar={() => setPendienteGoogle(null)}
+        />
+      )}
     </div>
   )
 }

@@ -35,15 +35,20 @@ export function AuthProvider({ children }) {
     return perfil.data
   }
 
-  async function loginWithGoogle(idToken) {
-    const res = await api.post('/usuarios/auth/google/', { id_token: idToken })
+  // rol solo se manda cuando el usuario ya eligio Cliente/Empresa en el
+  // selector, tras un primer intento que devolvio requiere_rol=true.
+  async function loginWithGoogle(credential, rol) {
+    const res = await api.post('/usuarios/auth/google/', rol ? { credential, rol } : { credential })
+
+    if (res.data?.requiere_rol) {
+      return { requiereRol: true, ...res.data }
+    }
+
     localStorage.setItem('access_token', res.data.access)
     localStorage.setItem('refresh_token', res.data.refresh)
-
-    const perfil = await api.get('/usuarios/perfil/')
-    setUser(perfil.data)
-    addToast(`Bienvenido, ${perfil.data.first_name || perfil.data.username}`, 'success')
-    return perfil.data
+    setUser(res.data.user)
+    addToast(`Bienvenido, ${res.data.user.first_name || res.data.user.username}`, 'success')
+    return res.data.user
   }
 
   function logout() {

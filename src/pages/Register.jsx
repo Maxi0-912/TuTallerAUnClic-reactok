@@ -4,7 +4,18 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 import GoogleLoginButton from '../components/GoogleLoginButton'
+import SelectorRolGoogle from '../components/SelectorRolGoogle'
 import logo from '../assets/logo_solo.png'
+
+function redirigirPorRol(navigate, rolNombre) {
+  if (rolNombre === 'admin') {
+    navigate('/admin/dashboard')
+  } else if (rolNombre === 'empresa') {
+    navigate('/empresa/dashboard')
+  } else {
+    navigate('/inicio')
+  }
+}
 
 const ROLES_PUBLICOS = [
   { label: 'Cliente',  descripcion: 'Busco talleres y agendo citas' },
@@ -30,6 +41,8 @@ export default function Register() {
   const [form, setForm]     = useState(EMPTY_FORM)
   const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
+  const [pendienteGoogle, setPendienteGoogle] = useState(null)
+  const [creandoCuenta, setCreandoCuenta]     = useState(false)
 
   function set(field) {
     return e => setForm(f => ({ ...f, [field]: e.target.value }))
@@ -76,15 +89,7 @@ export default function Register() {
 })
 
 const perfilData = await login(form.username, form.password)
-const rolNombre  = perfilData?.rol_nombre?.toLowerCase()
-
-if (rolNombre === 'empresa') {
-  navigate('/empresa/dashboard')
-} else if (rolNombre === 'admin') {
-  navigate('/admin/dashboard')
-} else {
-  navigate('/inicio')
-}
+redirigirPorRol(navigate, perfilData?.rol_nombre?.toLowerCase())
 
 } catch (err) {
   const data = err.response?.data
@@ -101,21 +106,31 @@ if (rolNombre === 'empresa') {
     }
   }
 
-  async function handleGoogleCredential(idToken) {
+  async function handleGoogleCredential(credential) {
     setError('')
     try {
-      const perfilData = await loginWithGoogle(idToken)
-      const rolNombre   = perfilData?.rol_nombre?.toLowerCase()
-
-      if (rolNombre === 'empresa') {
-        navigate('/empresa/dashboard')
-      } else if (rolNombre === 'admin') {
-        navigate('/admin/dashboard')
-      } else {
-        navigate('/inicio')
+      const resultado = await loginWithGoogle(credential)
+      if (resultado?.requiereRol) {
+        setPendienteGoogle({ credential, ...resultado })
+        return
       }
+      redirigirPorRol(navigate, resultado.rol_nombre?.toLowerCase())
     } catch (err) {
       setError(err.response?.data?.error ?? 'No se pudo continuar con Google')
+    }
+  }
+
+  async function handleConfirmarRol(rol) {
+    if (!rol || !pendienteGoogle) return
+    setCreandoCuenta(true)
+    setError('')
+    try {
+      const user = await loginWithGoogle(pendienteGoogle.credential, rol)
+      setPendienteGoogle(null)
+      redirigirPorRol(navigate, user.rol_nombre?.toLowerCase())
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'No se pudo crear la cuenta')
+      setCreandoCuenta(false)
     }
   }
 
@@ -238,6 +253,15 @@ if (rolNombre === 'empresa') {
           Tu Taller a un Clic &copy; 2025
         </p>
       </div>
+
+      {pendienteGoogle && (
+        <SelectorRolGoogle
+          datos={pendienteGoogle}
+          loading={creandoCuenta}
+          onConfirmar={handleConfirmarRol}
+          onCancelar={() => setPendienteGoogle(null)}
+        />
+      )}
     </div>
   )
 }
